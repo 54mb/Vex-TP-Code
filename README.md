@@ -13,6 +13,6 @@ For each file you changes
 > git add <filename>
 
 Once youve got all of them
-> git commit -m <update message in "quotes">
+> git commit -m "update message in quotes"
 
-> git push <
+> git push
