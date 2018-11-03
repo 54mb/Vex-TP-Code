@@ -2,6 +2,7 @@
 Code for VEX Turning Point USC 2018-2019
 
 GitHub Cheat Sheet (Mac):
+
 Navigate to repository in termial
 To Pull:
 > git pull
