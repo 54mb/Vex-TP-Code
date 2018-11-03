@@ -2,6 +2,7 @@
 //  example.cpp
 //  
 //  Will not compile, but shows old vs new code
+//  New is much cleaner after setup.
 //  Created by Sam Burton on 03/11/2018.
 //
 
