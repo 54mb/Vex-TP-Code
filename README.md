@@ -4,12 +4,17 @@ Code for VEX Turning Point USC 2018-2019
 GitHub Cheat Sheet (Mac):
 
 Navigate to repository in termial
+
 To Pull:
 > git pull
 
 Then make changes
-Save files and type git status
+
+Save files and type
+> git status
+
 List of files you changed should come up
+
 For each file you changes
 > git add <filename>
 
