@@ -164,11 +164,12 @@ private:
     double direction, targetDirection;
     double distance, targetDistance;
     double autoSpeed, autoTime, autoMode, autoTimeOut;
-    double turnAccepted, turnRate, pulseTime, pulsePause, minSpeed, maxTurn;
+    double turnAccepted, turnRate, turnPulse, pulseTime, pulsePause, minSpeed, maxTurn;
     bool autonComplete;
     double currentTime, recordedTime;
-    double leftSpeed, rightSpeed, leftRunSpeed, rightRunSpeed;
-    bool speedOverride;
+    double leftSpeed, rightSpeed, leftRunSpeed, rightRunSpeed, recordedDistLeft, recordedDistRight, minForward, lastAngle;
+    bool speedOverride, controlsSet;
+    int turnMode;
 public:
     Drive();
     ~Drive();
@@ -184,19 +185,22 @@ public:
     void setTicksPerTile(double);
     void setTicksPerDegree(double);
     void setDeadZone(double);
+    void setMinForwardSpeed(double);
     void setDirection(double);
     void setTimeOut(double);
+    void setTurnMode(int);
     
     void setTurnAccepted(double);
     void setTurnRate(double);
     void setPulseTime(double);
     void setPulsePause(double);
-    void setMinSpeed(double);
-    void setMaxTurn(double);
+    void setMinTurnSpeed(double);
+    void setMaxTurnSpeed(double);
     
     double getTemperature();
     double getPower();
     double getCurrent();
+    double getDirection();
     
     void finishMove();
     
