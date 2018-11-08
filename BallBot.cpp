@@ -23,8 +23,10 @@ Motor intakeInner, intakeOuter;
 #define FLYWHEEL_AIM_RANGE 5    // fire ball when within x degrees of flag
 
 // Declare and initialize any global flags we need:
+double* autonCommand = &defaultAuton[0];    // default auto routine
 int autoFireState = -1;         // -1 for neutral, 1 for 'aim&spin&fire', 2 for 'spin & fire', 3 for 'fire!'
 int targetFlag = 1;             // 1 for low, 2 for high, 3 for high then low
+bool forceIntake = false;
 double intakeSpeedOuter = 0;    // speed for outer intake
 double intakeSpeedInner = 0;    // speed for inner intake
 double flyWheelDefaultSpeed = 0;    // set speed for fixed-dist fireing
@@ -40,6 +42,19 @@ double[][] flywheelSpeeds = {
 };
 int flyWheelSpeedsDefinition = 3;   // number of entries
 
+
+double processEntry() {
+    autonCommand++;
+    return *autonCommand;
+}
+
+
+
+void setGyro(double dir) {
+    // Set sensor value for gyro
+    
+    
+}
 
 
 void pre_auton( void ) {
@@ -58,8 +73,10 @@ int runFlywheel() {
     while (true) {
         
         // Set intake motor speeds to 0
-        intakeSpeedInner = 0;
-        intakeSpeedOuter = 0;
+        if (!forceIntake) {
+            intakeSpeedInner = 0;
+            intakeSpeedOuter = 0;
+        }
 
         // keep flywheel at default speed
         flywheel.runAtSpeed(flyWheelDefaultSpeed);
@@ -185,11 +202,13 @@ int runFlywheel() {
             intakeSpeedInner = 25;
             intakeSpeedOuter = 100;
             runTillBall = 0;
+            forceIntake = false;
         }
         if (BTN_INTAKE_OUT) { // manual run intake out
             intakeSpeedInner = -25;
             intakeSpeedOuter = -100;
             runTillBall = 0;
+            forceIntake = false;
         }
         if (BTN_INTAKE_TOGGLE) { // toggle auto ball intake
             if (!justToggledAutoBall) {
@@ -203,6 +222,7 @@ int runFlywheel() {
         if (BTN_ABORT) {     // cancel auto functions
             autoFireState = -1;
             runTillBall = 0;
+            forceIntake = false;
         }
         
         if (runTillBall) {
@@ -237,7 +257,15 @@ void autonomous( void ) {
     // Start flywheel task
     
     
+    bool nextCommand = true;
+    int driveMode = 0;
+    double pauseTime = 0;
     // Set pointer to chosen auton routine
+    if (autonSelect == 1) autonCommand = &auton1[0];
+    
+    
+    // First entry is always direction,
+    setGyro(*autonCommand);
     
     
     while (true) {
@@ -251,7 +279,64 @@ void autonomous( void ) {
         // SETGYRO
         // FIRE (Auto aim, high & low)
         // INTAKE (Time / Until ball enters)
-        
+        if (nextCommand) {
+            switch ((int)processEntry()) {
+                case END:
+                    // Do nothing
+                    break;
+                case PAUSE:
+                    pauseTime = processEntry();
+                    if (pauseTime > 0) pauseTime = pauseTime * 1000 + driveBrain->timer(vex::timeUnits::msec);
+                    break;
+                case DRIVE:
+                    double ds = processEntry();
+                    double dd = processEntry();
+                    double dt = processEntry();
+                    if (dt < 0) {
+                        if (dt == DISTANCE) {
+                            driveMode = dt;
+                            drive.driveDist(ds,dd,processEntry(),processEntry());
+                        }
+                        else {
+                            driveMode = dt;
+                            drive.driveCustom(ds,dd,processEntry());
+                        }
+                    }
+                    else {
+                        driveMode = 0;
+                        drive.driveTime(ds,dd,dt);
+                    }
+                    break;
+                case TURN:
+                    drive.turnTo(processEntry(),processEntry());
+                    break;
+                case TURN_REL:
+                    drive.turnRelative(processEntry(),processEntry());
+                    break;
+                case TURN_ENC:
+                    drive.turnRelativeEncoder(processEntry(),processEntry());
+                    break;
+                case FIRE_PRESET:
+                    autoFireState = 3;
+                    nextCommand = true;
+                    break;
+                case FIRE_AIM:
+                    autoFireState = 1;
+                    targetFlag = processEntry();
+                    nextCommand = true;
+                    break;
+                case INTAKE_ON:
+                    runTillBall = 2;
+                    nextCommand = true;
+                    break;
+                case INTAKE_OFF:
+                    runTillBall = 0;
+                    nextCommand = true;
+                    break;
+                default:
+                    break;
+            }
+        }
         
         
         
@@ -263,11 +348,34 @@ void autonomous( void ) {
         // Auton command termination code
         // Decide if we should move to the next command
         // eg. checking timers for pause, flags for shooting balls, etc.
+        bool terminateDrive = false;
+        if (driveMode == WHITELINE) {
+            if (/* read white line sensor */) {
+                terminateDrive = true;
+            }
+        }
         
+        if (pauseTime > 0) {
+            if (driveBrain->timer(vex::timeUnits::msec) > pauseTime) {
+                pauseTime = 0;
+                nextCommand = true;
+            }
+        }
+        else {
+            if (pauseTime == FIRED && autoFireState == -1) {
+                nextCommand = true;
+            }
+            if (pauseTime == GOTBALL)
+        }
         
+        if (terminateDrive) {
+            driveMode = 0;
+            drive.finishMove();
+            nextCommand = true;
+        }
         
-        // drive.setDirection(gyroDirection);
-        // drive.run();
+        drive.setDirection(gyroDirection);
+        drive.run();
         
         vex::task::sleep(20);   // let other tasks use cpu
     }

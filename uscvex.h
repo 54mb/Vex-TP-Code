@@ -156,7 +156,7 @@ public:
     void driveCustom(double, double, double);   // auto drive until terminated : speed, direction, distance, timeout
     void turnTo(double, double);    // auto turn to angle : angle, timeout
     void turnRelative(double, double);  // auto turn relative : angle, timeout
-    void Drive::turnRelativeEncoder(double, double) // auto turn relative with encoders
+    void turnRelativeEncoder(double, double) // auto turn relative with encoders
     void runAtSpeed(double);    // constant speed override straight line
     void runAtSpeeds(double, double);   // constant speed override turn/curve
     
