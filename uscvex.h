@@ -106,7 +106,7 @@ private:
     vector<vex::motor*> leftMotors, rightMotors;
     vex::controller::axis *leftSideJoy, *rightSideJoy, *powerJoy, *turnJoy;
     bool arcadeMode;
-    double deadZone, ticksPerTile, ticksPerDegree;
+    double deadZone, ticksPerTile, ticksPerDegree, slewRate, rightPower, leftPower;
     double temperature, power, current;
     double direction, targetDirection;
     double distance, targetDistance;
@@ -128,6 +128,8 @@ public:
     
     void setTankJoy(vex::controller::axis*,vex::controller::axis*); // sets tank controls
     void setArcadeJoy(vex::controller::axis*,vex::controller::axis*);   // sets arcade controls
+    
+    void setSlewRate(double);
     
     void setTicksPerTile(double);   // sets encoder ticks per field tile
     void setTicksPerDegree(double); // sets encoder ticks per degree

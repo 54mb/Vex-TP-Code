@@ -396,6 +396,9 @@ Drive::Drive() {
     ticksPerTile = 1;
     ticksPerDegree = 1;
     temperature = 0;
+    slewRate = 1;
+    rightPower = 0;
+    leftPower = 0;
     power = 0;
     current = 0;
     direction = 0;
@@ -453,6 +456,10 @@ void Drive::setArcadeJoy(vex::controller::axis* p,vex::controller::axis* t) {
     powerJoy = p;
     turnJoy = t;
     controlsSet = true;
+}
+
+void Drive::setSlewRate(double r) {
+    slewRate = r;
 }
 
 void Drive::setTicksPerTile(double t) {
@@ -795,12 +802,16 @@ void Drive::run() {
         rightSpeed = rightRunSpeed;
     }
     
+    // dampen motors so they don't spike current
+    rightPower = rightPower + ( (rightSpeed - rightPower) / slewRate );
+    leftPower = leftPower + ( (leftSpeed - leftPower) / slewRate );
+    
     // Set motors
     for (int i = 0; i < motorsLeft.size(); i++) {
-        motorsLeft[i]->spin(vex::directionType::fwd, leftSpeed, vex::velocityUnits::pct);
+        motorsLeft[i]->spin(vex::directionType::fwd, leftPower, vex::velocityUnits::pct);
     }
     for (int i = 0; i < motorsRight.size(); i++) {
-        motorsRight[i]->spin(vex::directionType::fwd, rightSpeed, vex::velocityUnits::pct);
+        motorsRight[i]->spin(vex::directionType::fwd, rightPower, vex::velocityUnits::pct);
     }
 }
 
