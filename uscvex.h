@@ -117,11 +117,19 @@ private:
     double leftSpeed, rightSpeed, leftRunSpeed, rightRunSpeed, recordedDistLeft, recordedDistRight, minForward, lastAngle;
     bool speedOverride, controlsSet;
     int turnMode;
+    
+    double xPosition, yPosition, lastDirection, lastRightEnc, lastLeftEnc, trackingTicksPerTile, trackingTicksPerDegree;
+    double targetX, targetY, targetS;
+    bool driveingToPos;
+    
 public:
     Drive();    // constructor
     ~Drive();   // destructor
     
     void setBrain(vex::brain*); // sets brain (for timers)
+    
+    void setTrackingTicksPerTile(double);       // set converts for tracking
+    void setTrackingTicksPerDegree(double);
     
     void addMotorLeft(vex::motor*); // adds motor to left side
     void addMotorRight(vex::motor*);    // adds motor to right side
@@ -130,6 +138,8 @@ public:
     void setArcadeJoy(vex::controller::axis*,vex::controller::axis*);   // sets arcade controls
     
     void setSlewRate(double);
+    
+    void setPosition(double, double);   // sets the position of the drive
     
     void setTicksPerTile(double);   // sets encoder ticks per field tile
     void setTicksPerDegree(double); // sets encoder ticks per degree
@@ -151,6 +161,11 @@ public:
     double getCurrent();    // gets avg. current draw
     double getDirection();  // gets direction of the robot
     
+    double getRightEnc();   // gets average right encoder values
+    double getLeftEnc();    // gets average left encoder values
+    
+    void trackPosition();    // tracks position of robot
+    
     void finishMove();  // stops any auton function
     
     void driveTime(double, double, double); // auto drive for time : speed, direction, distance, time
@@ -161,6 +176,9 @@ public:
     void turnRelativeEncoder(double, double) // auto turn relative with encoders
     void runAtSpeed(double);    // constant speed override straight line
     void runAtSpeeds(double, double);   // constant speed override turn/curve
+    
+    void turnToPoint(double, double);            // turn to face point on field
+    void driveTo(double, double, double);   // drive to point on field
     
     void stop();    // stop any auto movement
     void run(); // runs the drive

@@ -429,9 +429,28 @@ Drive::Drive() {
     minForward = 0;
     turnMode = TURNMODE_GYRO;
     lastAngle = 0;
+    xPosition = 0;
+    yPosition = 0;
+    lastDirection = 0;
+    lastRightEnc = 0;
+    lastLeftEnc = 0;
+    trackingTicksPerTile = 1;
+    trackingTicksPerDegree = 1;
+    targetX = 0;
+    targetY = 0;
+    targetS = 0;
+    drivingToPos = false;
 }
 ~Drive::Drive() {
     
+}
+
+void Drive::setTrackingTicksPerTile(double t) {
+    trackingTicksPerTile = t;
+}
+
+void Drive::setTrackingTicksPerDegree(double t) {
+    trackingTicksPerDegree = d;
 }
 
 void Drive::setBrain(vex::brain* b) {
@@ -503,6 +522,33 @@ void Drive::setMaxTurnSpeed(double m) {
     maxTurn = m;
 }
 
+void Drive::setPosition(double x, double y, double d) {
+    xPosition = x;
+    lastRightEnc = getRightEnc();
+    yPosition = y;
+    lastLeftEnc = getLeftEnc();
+    direction = d;
+    lastDirection = d;
+}
+
+double Drive::getRightEnc() {
+    double tot = 0;
+    for (int i = 0; i < motorsRight.size(); i++) {
+        tot += motorsRight[i]->position(vex::positionUnits::raw);
+    }
+    tot/=(motorsLeft.size()+motorsRight.size());
+    return tot;
+}
+
+double Drive::getLeftEnc() {
+    double tot = 0;
+    for (int i = 0; i < motorsLeft.size(); i++) {
+        tot += motorsRight[i]->position(vex::positionUnits::raw);
+    }
+    tot/=(motorsLeft.size()+motorsLeft.size());
+    return tot;
+}
+
 double Drive::getTemperature() {
     double tot = 0;
     for (int i = 0; i < motorsLeft.size(); i++) {
@@ -541,6 +587,7 @@ double Drive::getDirection() {
 }
 void Drive::finishMove() {
     autonComplete = true;
+    drivingToPos = false;
 }
 
 void Drive::driveTime(double s, double d, double t) {
@@ -632,10 +679,50 @@ void Drive::stop() {
     autoMode = DRIVEMODE_USER;
     autoSpeed = 0;
     speedOverride = false;
+    drivingToPos = false;
+}
+
+void Drive::turnToPoint(double x, double y, double t = -1) {
+    double dx = x - xPosition;
+    double dy = y - yPosition;
+    double dir = atan(dy/dx);
+    turnTo(dir);
+}
+
+void Drive::driveTo(double s, double x, double y, double t = 10) {
+    drivingToPos = true;
+    targetX = x;
+    targetY = y;
+    targetS = s;
+    double dx = x - xPosition;
+    double dy = y - yPosition;
+    double dir = atan(dy/dx);
+    double dist = hypot(x,y);
+    driveDist(s, dir, dist, t);
+}
+
+void Drive::trackPosition() {
+    
+    double leftDiff = getLeftEnc() - lastLeftEnc;   // Find encoder changes
+    double rightDiff = getRightEnc() - lastRightEnc;
+    
+    double angleChange = (rightDiff - leftDiff)/2;  // Find angle change
+    angleChange *= trackingTicksPerDegree;
+    
+    double distChange = (leftDiff + rightDiff)/2;   // Find lin. dist change
+    distChange *= trackingTicksPerTile;
+    
+    
+    direction += angleChange;   // Find cumulative direction
+    xPosition += distChange * cos(direction * M_PI / 180);  // find cumulative xPos
+    yPosition += distChange * sin(direction * M_PI / 180);  // find cumulative yPos
+    
 }
 
 void Drive::run() {
     // This is where the fun begins
+    
+    trackPosition();        // keep track of where we are on the field
     
     double forward = 0;
     double turn = 0;
@@ -657,6 +744,10 @@ void Drive::run() {
     
     // auto functions
     if (autoMode != DRIVEMODE_USER) {
+        
+        if (drivingToPos) {         // keep calculating new angle & distance to stay on-target
+            driveTo(targetS, targetX, targetY);
+        }
         
         forward = autoSpeed;
         
@@ -682,6 +773,7 @@ void Drive::run() {
         
         if (currentTime > autoTimeOut && autoTimeOut > 0) {
             autonComplete = true;
+            drivingToPos = false;
         }
         
         // Turn code
