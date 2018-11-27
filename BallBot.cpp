@@ -1,5 +1,7 @@
 #include "BallBotConfig.h"
-#include "uscvex.h"
+#include "drive.h"
+#include "posmech.h"
+#include "speedmech.h"
 #include "BallBotAutons.cpp"
 
 vex::competition Competition;
@@ -7,7 +9,15 @@ vex::competition Competition;
 // Declare objects as globals
 Drive drive = Drive();
 SpeedMachine flyWheel = SpeedMachine();
-Motor intakeInner, intakeOuter;
+PositionMachine arm = PositionMachine();
+PositionMachine wrist = PositionMachine();
+PositionMachine flipper = PositionMachine();
+
+#define FLYWHEEL 1
+#define ARM 2
+
+#define HIGH 1
+#define LOW 2
 
 // #defines for controller buttons
 #define BTN_FIRE_LOW
@@ -19,18 +29,53 @@ Motor intakeInner, intakeOuter;
 #define BTN_INTAKE_TOGGLE
 #define BTN_ABORT
 
+#define BTN_TOGGLE_MODE
+
+#define BTN_ARM_HIGH
+#define BTN_ARM_LOW
+#define BTN_ARM_DOWN
+#define BTN_WRIST_VERTICAL
+#define BTN_WRIST_FORWARD
+#define BTN_WRIST_BACK
+#define BTN_FLIP
+
+// #defines for arm positions
+#define FLIP_POS1
+#define FLIP_POS2
+#define WRIST_BACK_POS
+#define WRIST_FORWARD_POS
+#define WRIST_VERTICAL_POS
+#define ARM_POS_HIGH
+#define ARM_POS_LOW
+#define ARM_POS_DOWN
+
 // #defines for tuning
 #define FLYWHEEL_AIM_RANGE 5    // fire ball when within x degrees of flag
 
 // Declare and initialize any global flags we need:
+// Control mode
+int controlMode = FLYWHEEL;
+
+// Auton Control
 double* autonCommand = &defaultAuton[0];    // default auto routine
+
+// For Flywheel
 int autoFireState = -1;         // -1 for neutral, 1 for 'aim&spin&fire', 2 for 'spin & fire', 3 for 'fire!'
 int targetFlag = 1;             // 1 for low, 2 for high, 3 for high then low
+
+//For Intake
 bool forceIntake = false;
 double intakeSpeedOuter = 0;    // speed for outer intake
 double intakeSpeedInner = 0;    // speed for inner intake
 double flyWheelDefaultSpeed = 0;    // set speed for fixed-dist fireing
 int runTillBall = 0;            // 0 = nothing, 1 = run till 1 ball in, 2 = run for two balls
+
+// For cap mechanisms
+double armSeek = -1;
+double wristSeek = -1;
+double flipperSeek = -1;
+int stackTarget = -1;
+int stackStep = -1;
 
 // Array for flywheel speed lookup'
 // Distance (tiles), low flag speed (rpm), high flag speed (rpm)
@@ -60,8 +105,106 @@ void setGyro(double dir) {
 void pre_auton( void ) {
     // Set-up SpeedMachine for flywheel
     // Set-up Drive for drive
+    // Set-up 3 speed machines for cap mechanisms
     
 }
+
+
+int runArm() {
+    bool justFlipped = false;
+    
+    while (true) {
+        
+        // If we want to stack something, follow the steps
+        switch (stackStep) {
+            case 1:
+                
+                break;
+            case 2:
+                
+                break;
+            default:
+                stackStep = -1;
+                break;
+        }
+        
+        // Check controller inputs
+        if (controlMode == ARM) {
+            if (BTN_FLIP) {
+                stackStep = -1;
+                if (!justFlipped) {
+                    if (flipper.getPosition() > (FLIP_POS1 + FLIP_POS2)/2) {
+                        flipperSeek = FLIP_POS1;
+                    }
+                    else {
+                        flipperSeek = FLIP_POS2;
+                    }
+                }
+                justFlipped = true;
+            }
+            else {
+                justFlipped = false;
+            }
+            if (BTN_WRIST_BACK) {
+                stackStep = -1;
+                wristSeek = WRIST_BACK_POS;
+            }
+            if (BTN_WRIST_FORWARD) {
+                stackStep = -1;
+                wristSeek = WRIST_FORWARD_POS;
+            }
+            if (BTN_WRIST_VERTICAL) {
+                stackStep = -1;
+                wristSeek = WRIST_VERTICAL_POS;
+            }
+            if (BTN_ARM_HIGH) {
+                stackStep = -1;
+                armSeek = ARM_POS_HIGH;
+            }
+            if (BTN_ARM_HIGH) {
+                stackStep = -1;
+                armSeek = ARM_POS_LOW;
+            }
+            if (BTN_ARM_DOWN) {
+                stackStep = -1;
+                armSeek = ARM_POS_DOWN;
+            }
+        }
+        if (BTN_ABORT) {
+            wristSeek = -1;
+            armSeek = -1;
+            flipperSeek = -1;
+            stackStep = -1;
+        }
+        
+        // If we need to seek, then tell the arm, wrist, and flipper
+        if (armSeek > 0) {
+            arm.hold(armSeek);
+        }
+        else {
+            arm.stop();
+        }
+        if (wristSeek > 0) {
+            wrist.hold(wristSeek);
+        }
+        else {
+            wrist.stop();
+        }
+        if (flipperSeek > 0) {
+            flipper.hold(flipperSeek);
+        }
+        else {
+            flipper.stop();
+        }
+        
+        arm.run();
+        wrist.run();
+        flipper.run();
+        
+        vex::task::sleep(20);   // don't hog cpu
+    }
+}
+
 
 int runFlywheel() {
     
@@ -181,43 +324,44 @@ int runFlywheel() {
         // Check controller buttons...
         // Set flags for preset flywheel speeds & auto-aim-fire
         // If manual intake buttons pressed, override intake speeds
-        
-        if (BTN_FIRE_LOW) { // auto fire low
-            autoFireState = 1;
-            targetFlag = 1;
-        }
-        if (BTN_FIRE_HIGH) { // auto fire high
-            autoFireState = 1;
-            targetFlag = 2;
-        }
-        if (BTN_FIRE_BOTH) { // auto fire both
-            autoFireState = 1;
-            targetFlag = 3;
-        }
-        if (BTN_FIRE_PRESET) { // auto fire preset
-            autoFireState = 3;
-        }
-        
-        if (BTN_INTAKE_IN) { // manual run intake in
-            intakeSpeedInner = 25;
-            intakeSpeedOuter = 100;
-            runTillBall = 0;
-            forceIntake = false;
-        }
-        if (BTN_INTAKE_OUT) { // manual run intake out
-            intakeSpeedInner = -25;
-            intakeSpeedOuter = -100;
-            runTillBall = 0;
-            forceIntake = false;
-        }
-        if (BTN_INTAKE_TOGGLE) { // toggle auto ball intake
-            if (!justToggledAutoBall) {
-                if (runTillBall) runTillBall = 0; else runTillBall = 2;
+        if (controlMode == FLYWHEEL) {
+            if (BTN_FIRE_LOW) { // auto fire low
+                autoFireState = 1;
+                targetFlag = 1;
             }
-            justToggledAutoBall = true;
-        }
-        else {
-            justToggledAutoBall = false;
+            if (BTN_FIRE_HIGH) { // auto fire high
+                autoFireState = 1;
+                targetFlag = 2;
+            }
+            if (BTN_FIRE_BOTH) { // auto fire both
+                autoFireState = 1;
+                targetFlag = 3;
+            }
+            if (BTN_FIRE_PRESET) { // auto fire preset
+                autoFireState = 3;
+            }
+            
+            if (BTN_INTAKE_IN) { // manual run intake in
+                intakeSpeedInner = 25;
+                intakeSpeedOuter = 100;
+                runTillBall = 0;
+                forceIntake = false;
+            }
+            if (BTN_INTAKE_OUT) { // manual run intake out
+                intakeSpeedInner = -25;
+                intakeSpeedOuter = -100;
+                runTillBall = 0;
+                forceIntake = false;
+            }
+            if (BTN_INTAKE_TOGGLE) { // toggle auto ball intake
+                if (!justToggledAutoBall) {
+                    if (runTillBall) runTillBall = 0; else runTillBall = 2;
+                }
+                justToggledAutoBall = true;
+            }
+            else {
+                justToggledAutoBall = false;
+            }
         }
         if (BTN_ABORT) {     // cancel auto functions
             autoFireState = -1;
@@ -333,6 +477,43 @@ void autonomous( void ) {
                     runTillBall = 0;
                     nextCommand = true;
                     break;
+                case ARMSEEK:
+                    armSeek = processEntry();
+                    nextCommand = true;
+                    break
+                case WRISTSEEK:
+                    wristSeek = processEntry();
+                    nextCommand = true;
+                    break;
+                case FLIPPERSEEK:
+                    flipperSeek = processEntry();
+                    nextCommand = true;
+                    break;
+                case FLIP:
+                    if (flipper.getPosition() > (FLIP_POS1 + FLIP_POS2)/2) {
+                        flipperSeek = FLIP_POS1;
+                    }
+                    else {
+                        flipperSeek = FLIP_POS2;
+                    }
+                    nextCommand = true;
+                    break;
+                case STACK_LOW:
+                    stackTarget = LOW;
+                    stackStep = 1;
+                    break;
+                case STACK_HIGH:
+                    stackTarget = HIGH;
+                    stackStep = 1;
+                    break;
+                case STACK_LOW_FROM:
+                    stackTarget = LOW;
+                    stackStep = processEntry();
+                    break;
+                case STACK_HIGH_FROM:
+                    stackTarget = HIGH;
+                    stackStep = processEntry();
+                    break;
                 default:
                     break;
             }
@@ -353,6 +534,11 @@ void autonomous( void ) {
             if (/* read white line sensor */) {
                 terminateDrive = true;
             }
+        }
+        
+        if (stackTarget != 0 && stackStep == -1) {
+            stackTarget = 0;
+            nextCommand = true;
         }
         
         if (pauseTime > 0) {
@@ -392,7 +578,7 @@ void usercontrol( void ) {
         
         
         // drive.setDirection(gyroDirection);
-        // drive.run();
+        drive.run();
         vex::task::sleep(20); //Sleep the task for a short amount of time to prevent wasted resources.
     }
 }
