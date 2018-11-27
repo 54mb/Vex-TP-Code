@@ -8,6 +8,7 @@
 #include "uscvex.h"
 #include <cmath>
 
+// CONSTRUCTOR
 
 PositionMachine::PositionMachine() {
     position = 0;                   // initial position defaults to 0
@@ -35,11 +36,13 @@ PositionMachine::~PositionMachine() {
     // nothing to do
 }
 
+
+// CONFIG
+
 void PositionMachine::addMotor(vex::motor* newMotor) {
     // add a motor to our vector
     motors.push_back(newMotor);
 }
-
 void PositionMachine::setPosition(double p) {
     // set all motor encoders to 0
     for (int i = 0; i < motors.size(); i++) {
@@ -77,6 +80,10 @@ void PositionMachine::setSeekRates(double dr, double ur) {
     negSeekRate = dr;
     posSeekRate = ur;
 }
+
+
+// GETTERS
+
 void PositionMachine::calcPosition() {  // calculates position from motor encoders
     double tot = 0;
     for (int i = 0; i < motors.size(); i++) {   // add up all motor positions
@@ -134,6 +141,9 @@ int PositionMachine::getNumMotors() {
     return motors.size();
 }
 
+
+// CONTROL FUNCTIONS
+
 void PositionMachine::disableSeek() {   // stops seeking
     seeking = false;
 }
@@ -152,13 +162,27 @@ void PositionMachine::enableHolding() { // sets holding flag
 void PositionMachine::disableHolding() {    // disables holding flag
     holding = false;
 }
-void PositionMachine::enableSpeed() {   // enables speed override
-    speedOverride = true;
-}
 void PositionMachine::disableSpeed() {  // disables speed override
     speedOverride = false;
 }
+void PositionMachine::enableSpeed() {   // enables speed override
+    speedOverride = true;
+}
 
+
+// AUTON FUNCTIONS
+
+void PositionMachine::stop() {  // disable any auto funtion
+    seeking = false;
+    holding = false;
+    speedOverride = false;
+    speed = 0;
+}
+void PositionMachine::runAtSpeed(double s) {    // moves at constant speed
+    speedOverride = true;
+    seeking = false;
+    runSpeed = s;
+}
 void PositionMachine::hold() {  //  holds at current position
     seeking = true;
     holding = true;
@@ -176,17 +200,9 @@ void PositionMachine::seek(double p) {  // seeks to target
     seeking = true;
     holding = false;
 }
-void PositionMachine::runAtSpeed(double s) {    // moves at constant speed
-    speedOverride = true;
-    seeking = false;
-    runSpeed = s;
-}
-void PositionMachine::stop() {  // disable any auto funtion
-    seeking = false;
-    holding = false;
-    speedOverride = false;
-    speed = 0;
-}
+
+
+// CALL EVERY LOOP
 
 void PositionMachine::run() {   // call every loop to run the machine
     

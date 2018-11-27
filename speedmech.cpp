@@ -9,6 +9,7 @@
 #include <cmath>
 
 
+// CONSTRUCTOR
 
 SpeedMachine::SpeedMachine() {
     speed = 0;
@@ -29,26 +30,28 @@ SpeedMachine::~SpeedMachine() {
     
 }
 
+
+// CONFIG
+
 void SpeedMachine::addMotor(vex::motor*) {
     motors.push_back(newMotor);
 }
-
 void SpeedMachine::setPowers(double l, double h) {
     lowPow = l;
     highPow = h;
 }
-
 void SpeedMachine::setRange(double r) {
     range = r;
 }
 void SpeedMachine::setScale(double s) {
     scale = s;
 }
+
+// GETTERS
 void SpeedMachine::calcDifference() {
     calcSpeed();
     difference = targetSpeed - speed;
 }
-
 double SpeedMachine::getSpeed() {
     calcSpeed();
     return speed;
@@ -81,6 +84,9 @@ int SpeedMachine::getNumMotors() {
     return motors.size();
 }
 
+
+// CONTROL
+
 void SpeedMachine::enable() {
     running = true;
 }
@@ -103,7 +109,6 @@ bool SpeedMachine::isWithinRange() {    // checks if the speed we're at is close
     calcWithinRange();
     return withinRange;
 }
-
 void SpeedMachine::resetEncoders() {
     for (int i = 0; i < motors.size(); i++) {
         motors[i]->resetRotation();
@@ -117,6 +122,10 @@ void SpeedMachine::calcSpeed() {
     tot *= scale;
     speed = tot;
 }
+
+
+// AUTON FUNCTIONS
+
 void SpeedMachine::runAtSpeed(double s) {
     targetSpeed = s;
     speedOverride = false;
@@ -128,18 +137,23 @@ void SpeedMachine::runAtPower(double p) {
     speedOverride = true;
 }
 
+
+// CALL EVERY LOOP
+
 void SpeedMachine::run() {
     
     double power = 0;
-    calcSpeed();
     calcDifference();
     
     // Bang-Bang speed control
-    if (speed < targetSpeed) {
+    if (difference < 0) {
         power = highPow;
     }
-    if (speed > targetSpeed) {
+    else if (difference > 0) {
         power = lowPow;
+    }
+    else {
+        power = (highPow + lowPow)/2;
     }
     
     // Power override

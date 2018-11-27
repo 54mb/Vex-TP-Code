@@ -8,6 +8,7 @@
 #include "uscvex.h"
 #include <cmath>
 
+// DEFINES FOR AUTON MODES
 #define DRIVEMODE_USER 0
 #define DRIVEMODE_TIME -1
 #define DRIVEMODE_DIST -2
@@ -17,24 +18,42 @@
 #define TURNMODE_ENCODER 2
 
 
+// CONSTRUCTOR
+
 Drive::Drive() {
-    arcadeMode = false;
-    deadZone = 0;
-    ticksPerTile = 1;
-    ticksPerDegree = 1;
-    temperature = 0;
+    
+    // CONFIG
+    driveBrain = NULL;
+    
+    // DRIVER
     slewRate = 1;
-    rightPower = 0;
-    leftPower = 0;
+    deadZone = 0;
+    arcadeMode = false;
+    controlsSet = false;
+    leftSpeed = 0;
+    rightSpeed = 0;
+    
+    // POSITION TRACKING
+    targetX = 0;
+    targetY = 0;
+    targetS = 0;
+    xPosition = 0;
+    yPosition = 0;
+    lastDirection = 0;
+    lastRightEnc = 0;
+    lastLeftEnc = 0;
+    trackingTicksPerTile = 1;
+    trackingTicksPerDegree = 1;
+    
+    // STATE
+    direction = 0;
+    temperature = 0;
     power = 0;
     current = 0;
-    direction = 0;
-    targetDirection = 0;
-    distance = 0;
-    targetDistance = 0;
-    autoSpeed = 0;
-    autoTime = 0;
-    autoMode = DRIVEMODE_USER;
+    
+    // AUTON TUNING
+    ticksPerTile = 1;
+    ticksPerDegree = 1;
     autoTimeOut = 0;
     turnAccepted = 1;
     turnRate = 1;
@@ -43,47 +62,40 @@ Drive::Drive() {
     pulsePause = 0;
     minSpeed = 0;
     maxTurn = 100;
+    minForward = 0;
+    
+    // AUTON FUNCTION FLAGS
+    rightPower = 0;
+    leftPower = 0;
+    targetDirection = 0;
+    distance = 0;
+    targetDistance = 0;
+    autoSpeed = 0;
+    autoTime = 0;
+    autoMode = DRIVEMODE_USER;
     autonComplete = false;
     currentTime = 0;
     recordedTime = 0;
-    leftSpeed = 0;
-    rightSpeed = 0;
     leftRunSpeed = 0;
     rightRunSpeed = 0;
-    controlsSet = false;
     recordedDistLeft = 0;
     recordedDistRight = 0;
-    minForward = 0;
     turnMode = TURNMODE_GYRO;
     lastAngle = 0;
-    xPosition = 0;
-    yPosition = 0;
-    lastDirection = 0;
-    lastRightEnc = 0;
-    lastLeftEnc = 0;
-    trackingTicksPerTile = 1;
-    trackingTicksPerDegree = 1;
-    targetX = 0;
-    targetY = 0;
-    targetS = 0;
     drivingToPos = false;
+    
 }
+
 ~Drive::Drive() {
     
 }
 
-void Drive::setTrackingTicksPerTile(double t) {
-    trackingTicksPerTile = t;
-}
 
-void Drive::setTrackingTicksPerDegree(double t) {
-    trackingTicksPerDegree = d;
-}
+// CONFIG
 
 void Drive::setBrain(vex::brain* b) {
     driveBrain = b;
 }
-
 void Drive::addMotorLeft(vex::motor* m) {
     motorsLeft.push_back(m);
 }
@@ -91,6 +103,15 @@ void Drive::addMotorRight(vex::motor*) {
     motorsRight.push_back(m);
 }
 
+
+// DRIVER PREFERENCES
+
+void Drive::setSlewRate(double r) {
+    slewRate = r;
+}
+void Drive::setDeadZone(double d) {
+    deadZone = d;
+}
 void Drive::setTankJoy(vex::controller::axis* l,vex::controller::axis* r) {
     arcadeMode = false;
     leftSideJoy = l;
@@ -104,60 +125,47 @@ void Drive::setArcadeJoy(vex::controller::axis* p,vex::controller::axis* t) {
     controlsSet = true;
 }
 
-void Drive::setSlewRate(double r) {
-    slewRate = r;
-}
 
-void Drive::setTicksPerTile(double t) {
-    ticksPerTile = t;
-}
-void Drive::setTicksPerDegree(double t) {
-    ticksPerDegree = t;
-}
-void Drive::setDeadZone(double d) {
-    deadZone = d;
-}
-void Drive::setMinForwardSpeed(double d) {
-    minForward = d;
+// POSITION TRACKING
+
+void Drive::setPosition(double x, double y, double d) {
+    xPosition = x;
+    // lastRightEnc = getRightEnc();
+    yPosition = y;
+    // lastLeftEnc = getLeftEnc();
+    direction = d;
+    lastDirection = d;
 }
 void Drive::setDirection(double d) {
     direction = d;
 }
-void Drive::setTimeOut(double t) {
-    autoTimeOut = t;
+void Drive::setTrackingTicksPerTile(double t) {
+    trackingTicksPerTile = t;
 }
-void Drive::setTurnMode(int m) {
-    turnMode = m;
+void Drive::setTrackingTicksPerDegree(double t) {
+    trackingTicksPerDegree = d;
 }
-
-void Drive::setTurnAccepted(double t) {
-    turnAccepted = t;
-}
-void Drive::setTurnRate(double t) {
-    turnRate = t;
-}
-void Drive::setPulseTime(double p) {
-    pulseTime = p;
-}
-void Drive::setPulsePause(double p) {
-    pulsePause = p
-}
-void Drive::setMinTurnSpeed(double m) {
-    minSpeed = m;
-}
-void Drive::setMaxTurnSpeed(double m) {
-    maxTurn = m;
+void Drive::trackPosition() {
+    double leftDiff = getLeftEnc() - lastLeftEnc;   // Find encoder changes
+    double rightDiff = getRightEnc() - lastRightEnc;
+    
+    double angleChange = (rightDiff - leftDiff)/2;  // Find angle change
+    angleChange *= trackingTicksPerDegree;
+    
+    double distChange = (leftDiff + rightDiff)/2;   // Find lin. dist change
+    distChange *= trackingTicksPerTile;
+    
+    direction += angleChange;   // Find cumulative direction
+    xPosition += distChange * cos(direction * M_PI / 180);  // find cumulative xPos
+    yPosition += distChange * sin(direction * M_PI / 180);  // find cumulative yPoS
 }
 
-void Drive::setPosition(double x, double y, double d) {
-    xPosition = x;
-    lastRightEnc = getRightEnc();
-    yPosition = y;
-    lastLeftEnc = getLeftEnc();
-    direction = d;
-    lastDirection = d;
-}
 
+// STATE GETTERS
+
+double Drive::getDirection() {
+    return direction;
+}
 double Drive::getRightEnc() {
     double tot = 0;
     for (int i = 0; i < motorsRight.size(); i++) {
@@ -166,7 +174,6 @@ double Drive::getRightEnc() {
     tot/=(motorsLeft.size()+motorsRight.size());
     return tot;
 }
-
 double Drive::getLeftEnc() {
     double tot = 0;
     for (int i = 0; i < motorsLeft.size(); i++) {
@@ -175,7 +182,6 @@ double Drive::getLeftEnc() {
     tot/=(motorsLeft.size()+motorsLeft.size());
     return tot;
 }
-
 double Drive::getTemperature() {
     double tot = 0;
     for (int i = 0; i < motorsLeft.size(); i++) {
@@ -209,13 +215,46 @@ double Drive::getCurrent() {
     current = tot/(motorsLeft.size()+motorsRight.size());
     return current;
 }
-double Drive::getDirection() {
-    return direction;
+
+
+// SETTERS FOR AUTON TUNING
+
+void Drive::setTicksPerTile(double t) {
+    ticksPerTile = t;
 }
-void Drive::finishMove() {
-    autonComplete = true;
-    drivingToPos = false;
+void Drive::setTicksPerDegree(double t) {
+    ticksPerDegree = t;
 }
+void Drive::setMinForwardSpeed(double d) {
+    minForward = d;
+}
+void Drive::setTimeOut(double t) {
+    autoTimeOut = t;
+}
+void Drive::setTurnMode(int m) {
+    turnMode = m;
+}
+void Drive::setTurnAccepted(double t) {
+    turnAccepted = t;
+}
+void Drive::setTurnRate(double t) {
+    turnRate = t;
+}
+void Drive::setPulseTime(double p) {
+    pulseTime = p;
+}
+void Drive::setPulsePause(double p) {
+    pulsePause = p
+}
+void Drive::setMinTurnSpeed(double m) {
+    minSpeed = m;
+}
+void Drive::setMaxTurnSpeed(double m) {
+    maxTurn = m;
+}
+
+
+// AUTON FUNCTIONS
 
 void Drive::driveTime(double s, double d, double t) {
     // speed, direction, distance, time
@@ -289,7 +328,6 @@ void Drive::turnRelativeEncoder(double a, double t = -1) {
     recordedDistRight /= motorsRight.size();
     targetDistance = (a * ticksPerDegree) + (recordedDistRight - recordedDistLeft)/2
 }
-
 void Drive::runAtSpeed(double s) {
     leftRunSpeed = s;
     rightRunSpeed = s;
@@ -300,22 +338,12 @@ void Drive::runAtSpeeds(double l, double r) {
     rightRunSpeed = r;
     speedOverride = true;
 }
-
-void Drive::stop() {
-    autoTime = 0;
-    autoMode = DRIVEMODE_USER;
-    autoSpeed = 0;
-    speedOverride = false;
-    drivingToPos = false;
-}
-
 void Drive::turnToPoint(double x, double y, double t = -1) {
     double dx = x - xPosition;
     double dy = y - yPosition;
     double dir = atan(dy/dx);
     turnTo(dir);
 }
-
 void Drive::driveTo(double s, double x, double y, double t = 10) {
     drivingToPos = true;
     targetX = x;
@@ -327,24 +355,16 @@ void Drive::driveTo(double s, double x, double y, double t = 10) {
     double dist = hypot(x,y);
     driveDist(s, dir, dist, t);
 }
-
-void Drive::trackPosition() {
-    
-    double leftDiff = getLeftEnc() - lastLeftEnc;   // Find encoder changes
-    double rightDiff = getRightEnc() - lastRightEnc;
-    
-    double angleChange = (rightDiff - leftDiff)/2;  // Find angle change
-    angleChange *= trackingTicksPerDegree;
-    
-    double distChange = (leftDiff + rightDiff)/2;   // Find lin. dist change
-    distChange *= trackingTicksPerTile;
-    
-    
-    direction += angleChange;   // Find cumulative direction
-    xPosition += distChange * cos(direction * M_PI / 180);  // find cumulative xPos
-    yPosition += distChange * sin(direction * M_PI / 180);  // find cumulative yPos
-    
+void Drive::stop() {
+    autoTime = 0;
+    autoMode = DRIVEMODE_USER;
+    autoSpeed = 0;
+    speedOverride = false;
+    drivingToPos = false;
 }
+
+
+// CALL EVERY LOOP
 
 void Drive::run() {
     // This is where the fun begins
@@ -533,10 +553,3 @@ void Drive::run() {
         motorsRight[i]->spin(vex::directionType::fwd, rightPower, vex::velocityUnits::pct);
     }
 }
-
-
-
-
-
-
-
