@@ -39,7 +39,6 @@ Drive::Drive() {
     targetS = 0;
     xPosition = 0;
     yPosition = 0;
-    lastDirection = 0;
     lastRightEnc = 0;
     lastLeftEnc = 0;
     trackingTicksPerTile = 1;
@@ -134,7 +133,6 @@ void Drive::setPosition(double x, double y, double d) {
     yPosition = y;
     // lastLeftEnc = getLeftEnc();
     direction = d;
-    lastDirection = d;
 }
 void Drive::setDirection(double d) {
     direction = d;
