@@ -5,11 +5,12 @@
 //  Created by Sam Burton on 03/11/2018.
 //
 
+#include "main.h"
 #include "posmech.h"
 #include <cmath>
 
 // CONSTRUCTOR
-bug
+
 PositionMachine::PositionMachine() {
     position = 0;                   // initial position defaults to 0
     targetPosition = 0;             // initial target position 0
@@ -39,12 +40,12 @@ PositionMachine::~PositionMachine() {
 
 // CONFIG
 
+void PositionMachine::setController(pros::Controller* c) {
+    controller = c;
+}
 void PositionMachine::addMotor(pros::Motor* newMotor) {
     // add a motor to our vector
     motors.push_back(newMotor);
-}
-void setController(pros::Controller* c) {
-    remote = c;
 }
 void PositionMachine::setPosition(double p) {
     // set all motor encoders to 0
@@ -233,11 +234,11 @@ void PositionMachine::run() {   // call every loop to run the machine
     
     // manual ovverides
     if (manOverride) {
-        if (remote->get_digital(negButton)) {
+        if (controller->get_digital(negButton)) {
             stop();
             speed = negManualSpeed;
         }
-        if (remote->get_digital(posButton)) {
+        if (controller->get_digital(posButton)) {
             stop();
             speed = posManualSpeed;
         }
