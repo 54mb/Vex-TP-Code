@@ -102,13 +102,6 @@ void setGyro(double dir) {
 }
 
 
-void pre_auton( void ) {
-    // Set-up SpeedMachine for flywheel
-    // Set-up Drive for drive
-    // Set-up 3 speed machines for cap mechanisms
-    
-}
-
 
 int runArm() {
     bool justFlipped = false;
