@@ -10,6 +10,7 @@
 #include <cmath>
 
 // CONSTRUCTOR
+bug
 
 PositionMachine::PositionMachine() {
     position = 0;                   // initial position defaults to 0

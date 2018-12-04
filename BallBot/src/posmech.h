@@ -12,7 +12,6 @@
 #include <vector>
 
 
-
 class PositionMachine {
 private:
     double position, targetPosition, speed, scale, upLim, lowLim, range, runSpeed, positionOffset;
