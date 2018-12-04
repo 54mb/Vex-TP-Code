@@ -11,6 +11,7 @@
 #include "main.h"
 #include <stdio.h>
 #include <vector>
+#include <cmath>
 
 
 class SpeedMachine {

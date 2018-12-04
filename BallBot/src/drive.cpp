@@ -6,7 +6,8 @@
 //
 
 #include "drive.h"
-#include <cmath>
+
+
 
 // DEFINES FOR AUTON MODES
 #define DRIVEMODE_USER 0
@@ -84,7 +85,6 @@ Drive::Drive() {
     drivingToPos = false;
     
 }
-
 Drive::~Drive() {
     
 }

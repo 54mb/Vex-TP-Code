@@ -6,7 +6,6 @@
 //
 
 #include "speedmech.h"
-#include <cmath>
 
 
 // CONSTRUCTOR

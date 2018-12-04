@@ -36,6 +36,7 @@
 
 #include "api.h"
 #include "usclib.h"
+#include "../src/BallBot.h"
 
 /**
  * You should add more #includes here
