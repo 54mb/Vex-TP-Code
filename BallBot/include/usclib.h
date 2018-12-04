@@ -3,5 +3,6 @@
 
 #include "../src/posmech.h"
 #include "../src/speedmech.h"
+#include "../src/drive.h"
 
 #endif

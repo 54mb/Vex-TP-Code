@@ -23,7 +23,7 @@
 Drive::Drive() {
     
     // CONFIG
-    driveBrain = NULL;
+    
     
     // DRIVER
     slewRate = 1;
@@ -85,20 +85,20 @@ Drive::Drive() {
     
 }
 
-~Drive::Drive() {
+Drive::~Drive() {
     
 }
 
 
 // CONFIG
 
-void Drive::setBrain(vex::brain* b) {
-    driveBrain = b;
+void Drive::setController(pros::Controller* c){
+    controller = c;
 }
-void Drive::addMotorLeft(vex::motor* m) {
+void Drive::addMotorLeft(pros::Motor* m) {
     motorsLeft.push_back(m);
 }
-void Drive::addMotorRight(vex::motor*) {
+void Drive::addMotorRight(pros::Motor* m) {
     motorsRight.push_back(m);
 }
 
@@ -111,13 +111,13 @@ void Drive::setSlewRate(double r) {
 void Drive::setDeadZone(double d) {
     deadZone = d;
 }
-void Drive::setTankJoy(vex::controller::axis* l,vex::controller::axis* r) {
+void Drive::setTankJoy(pros::controller_analog_e_t l,pros::controller_analog_e_t r) {
     arcadeMode = false;
     leftSideJoy = l;
     rightSideJoy = r;
     controlsSet = true;
 }
-void Drive::setArcadeJoy(vex::controller::axis* p,vex::controller::axis* t) {
+void Drive::setArcadeJoy(pros::controller_analog_e_t p,pros::controller_analog_e_t t) {
     arcadeMode = true;
     powerJoy = p;
     turnJoy = t;
@@ -127,6 +127,12 @@ void Drive::setArcadeJoy(vex::controller::axis* p,vex::controller::axis* t) {
 
 // POSITION TRACKING
 
+void Drive::setPosition(double x, double y) {
+    xPosition = x;
+    // lastRightEnc = getRightEnc();
+    yPosition = y;
+    // lastLeftEnc = getLeftEnc();
+}
 void Drive::setPosition(double x, double y, double d) {
     xPosition = x;
     // lastRightEnc = getRightEnc();
@@ -140,7 +146,7 @@ void Drive::setDirection(double d) {
 void Drive::setTrackingTicksPerTile(double t) {
     trackingTicksPerTile = t;
 }
-void Drive::setTrackingTicksPerDegree(double t) {
+void Drive::setTrackingTicksPerDegree(double d) {
     trackingTicksPerDegree = d;
 }
 void Drive::trackPosition() {
@@ -167,26 +173,26 @@ double Drive::getDirection() {
 double Drive::getRightEnc() {
     double tot = 0;
     for (int i = 0; i < motorsRight.size(); i++) {
-        tot += motorsRight[i]->position(vex::positionUnits::raw);
+        tot += motorsRight[i]->get_position();
     }
-    tot/=(motorsLeft.size()+motorsRight.size());
+    tot/=(motorsRight.size());
     return tot;
 }
 double Drive::getLeftEnc() {
     double tot = 0;
     for (int i = 0; i < motorsLeft.size(); i++) {
-        tot += motorsRight[i]->position(vex::positionUnits::raw);
+        tot += motorsLeft[i]->get_position();
     }
-    tot/=(motorsLeft.size()+motorsLeft.size());
+    tot/=(motorsLeft.size());
     return tot;
 }
 double Drive::getTemperature() {
     double tot = 0;
     for (int i = 0; i < motorsLeft.size(); i++) {
-        tot += motors[i]->temperature(vex::percentUnits::pct);
+        tot += motorsLeft[i]->get_temperature();
     }
     for (int i = 0; i < motorsRight.size(); i++) {
-        tot += motors[i]->temperature(vex::percentUnits::pct);
+        tot += motorsRight[i]->get_temperature();
     }
     temperature = tot/(motorsLeft.size()+motorsRight.size());
     return temperature;
@@ -194,10 +200,10 @@ double Drive::getTemperature() {
 double Drive::getPower() {
     double tot = 0;
     for (int i = 0; i < motorsLeft.size(); i++) {
-        tot += motors[i]->power(vex::powerUnits::watt);
+        tot += motorsLeft[i]->get_power();
     }
     for (int i = 0; i < motorsRight.size(); i++) {
-        tot += motors[i]->power(vex::powerUnits::watt);
+        tot += motorsRight[i]->get_power();
     }
     power = tot/(motorsLeft.size()+motorsRight.size());
     return power;
@@ -205,10 +211,10 @@ double Drive::getPower() {
 double Drive::getCurrent() {
     double tot = 0;
     for (int i = 0; i < motorsLeft.size(); i++) {
-        tot += motors[i]->current(vex::currentUnits::amp);
+        tot += motorsLeft[i]->get_current_draw();
     }
     for (int i = 0; i < motorsRight.size(); i++) {
-        tot += motors[i]->current(vex::currentUnits::amp);
+        tot += motorsRight[i]->get_current_draw();
     }
     current = tot/(motorsLeft.size()+motorsRight.size());
     return current;
@@ -227,7 +233,7 @@ void Drive::setMinForwardSpeed(double d) {
     minForward = d;
 }
 void Drive::setTimeOut(double t) {
-    autoTimeOut = t;
+    autoTimeOut = t*1000;
 }
 void Drive::setTurnMode(int m) {
     turnMode = m;
@@ -242,7 +248,7 @@ void Drive::setPulseTime(double p) {
     pulseTime = p;
 }
 void Drive::setPulsePause(double p) {
-    pulsePause = p
+    pulsePause = p;
 }
 void Drive::setMinTurnSpeed(double m) {
     minSpeed = m;
@@ -258,34 +264,25 @@ void Drive::driveTime(double s, double d, double t) {
     // speed, direction, distance, time
     autoSpeed = s;
     autoMode = DRIVEMODE_TIME;
-    autoTimeOut = t;
+    autoTimeOut = t*1000;
     targetDirection = d;
-    recordedTime = driveBrain->timer(vex::timeUnits::msec);
+    recordedTime = pros::millis();
 }
 void Drive::driveDist(double s, double dir, double dist, double t = 10) {
     // speed, direction, distance, timeout
     autoSpeed = s;
     targetDirection = dir;
     autoMode = DRIVEMODE_DIST;
-    autoTimeOut = t;
-    recordedTime = driveBrain->timer(vex::timeUnits::msec);
-    recordedDistLeft = 0;
-    for (int i = 0; i < motorsLeft.size(); i++) {
-        recordedDistLeft += motorsLeft[i]->rotation(vex::rotationUnits::deg);
-    }
-    recordedDistLeft /= motorsLeft.size();
-    recordedDistRight = 0;
-    for (int i = 0; i < motorsRight.size(); i++) {
-        recordedDistRight += motorsRight[i]->rotation(vex::rotationUnits::deg);
-    }
-    recordedDistRight /= motorsRight.size();
+    autoTimeOut = t*1000;
+    recordedTime = pros::millis();
+    recordedDistLeft = getLeftEnc();
+    recordedDistRight = getRightEnc();
     
-    targetDistance = dist * ticksPerTile; + (recordedDistRight + recordedDistLeft)/2
-    
+    targetDistance = dist * ticksPerTile; + (recordedDistRight + recordedDistLeft)/2;
 }
 void Drive::driveCustom(double s, double d, double t = 10) {
     // speed, direction, timeout
-    recordedTime = driveBrain->timer(vex::timeUnits::msec);
+    recordedTime = pros::millis();
     autoSpeed = s;
     autoMode = DRIVEMODE_CUSTOM;
     autoTimeOut = t*1000;
@@ -293,7 +290,7 @@ void Drive::driveCustom(double s, double d, double t = 10) {
 }
 void Drive::turnTo(double a, double t = -1) {
     // angle, timeout
-    recordedTime = driveBrain->timer(vex::timeUnits::msec);
+    recordedTime = pros::millis();
     targetDirection = a;
     autoTimeOut = t*1000;
     autoMode = DRIVEMODE_TURN;
@@ -301,7 +298,7 @@ void Drive::turnTo(double a, double t = -1) {
 }
 void Drive::turnRelative(double a, double t = -1) {
     // angle, timeout
-    recordedTime = driveBrain->timer(vex::timeUnits::msec);
+    recordedTime = pros::millis();
     targetDirection = direction + a;
     autoTimeOut = t*1000;
     autoMode = DRIVEMODE_TURN;
@@ -309,22 +306,14 @@ void Drive::turnRelative(double a, double t = -1) {
 }
 void Drive::turnRelativeEncoder(double a, double t = -1) {
     // angle, timeout
-    recordedTime = driveBrain->timer(vex::timeUnits::msec);
+    recordedTime = pros::millis();
     targetDirection = direction + a;
     autoTimeOut = t*1000;
     autoMode = DRIVEMODE_TURN;
     turnMode = TURNMODE_ENCODER;
-    recordedDistLeft = 0;
-    for (int i = 0; i < motorsLeft.size(); i++) {
-        recordedDistLeft += motorsLeft[i]->rotation(vex::rotationUnits::deg);
-    }
-    recordedDistLeft /= motorsLeft.size();
-    recordedDistRight = 0;
-    for (int i = 0; i < motorsRight.size(); i++) {
-        recordedDistRight += motorsRight[i]->rotation(vex::rotationUnits::deg);
-    }
-    recordedDistRight /= motorsRight.size();
-    targetDistance = (a * ticksPerDegree) + (recordedDistRight - recordedDistLeft)/2
+    recordedDistLeft = getLeftEnc();
+    recordedDistRight = getRightEnc();
+    targetDistance = (a * ticksPerDegree) + (recordedDistRight - recordedDistLeft)/2;
 }
 void Drive::runAtSpeed(double s) {
     leftRunSpeed = s;
@@ -373,18 +362,10 @@ void Drive::run() {
     double turn = 0;
     
     // Calculate useful information
-    currentTime = driveBrain->timer(vex::timeUnits::msec);
+    currentTime = pros::millis();
     
-    double currentDistLeft = 0;
-    for (int i = 0; i < motorsLeft.size(); i++) {
-        currentDistLeft += motorsLeft[i]->rotation(vex::rotationUnits::deg);
-    }
-    currentDistLeft /= motorsLeft.size();
-    double currentDistRight = 0;
-    for (int i = 0; i < motorsRight.size(); i++) {
-        currentDistRight += motorsRight[i]->rotation(vex::rotationUnits::deg);
-    }
-    currentDistRight /= motorsRight.size();
+    double currentDistLeft = getLeftEnc();
+    double currentDistRight = getRightEnc();
     currentDist = (currentDistRight + currentDistLeft)/2;
     
     // auto functions
@@ -453,7 +434,7 @@ void Drive::run() {
                     angle = 0;
                 }
                 else if (angle > -4) {
-                    angle = -4
+                    angle = -4;
                 }
             }
             else {
@@ -461,7 +442,7 @@ void Drive::run() {
                     angle = 0;
                 }
                 else if (angle < 4) {
-                    angle = 4
+                    angle = 4;
                 }
             }
         }
@@ -517,13 +498,13 @@ void Drive::run() {
     if (autoMode == DRIVEMODE_USER && controlsSet) {
         if (arcadeMode) {
             // Forward-backward, left-right
-            leftSpeed = powerJoy->position(vex::percentUnits::pct) - turnJoy->position(vex::percentUnits::pct);
-            rightSpeed = powerJoy->position(vex::percentUnits::pct) + turnJoy->position(vex::percentUnits::pct);
+            leftSpeed = controller->get_analog(powerJoy) - controller->get_analog(turnJoy);
+            rightSpeed = controller->get_analog(powerJoy) + controller->get_analog(turnJoy);
         }
         else {
             // Tank controls
-            leftSpeed = leftSideJoy->position(vex::percentUnits::pct);
-            rightSpeed = rightSideJoy->position(vex::percentUnits::pct);
+            leftSpeed = controller->get_analog(leftSideJoy);
+            rightSpeed = controller->get_analog(rightSideJoy);
         }
         if (leftSpeed*leftSpeed < deadZone*deadZone) leftSpeed = 0;
         if (rightSpeed*rightSpeed < deadZone*deadZone) rightSpeed = 0;
@@ -545,9 +526,9 @@ void Drive::run() {
     
     // Set motors
     for (int i = 0; i < motorsLeft.size(); i++) {
-        motorsLeft[i]->spin(vex::directionType::fwd, leftPower, vex::velocityUnits::pct);
+        motorsLeft[i]->move_voltage(leftPower*12000);
     }
     for (int i = 0; i < motorsRight.size(); i++) {
-        motorsRight[i]->spin(vex::directionType::fwd, rightPower, vex::velocityUnits::pct);
+        motorsRight[i]->move_voltage(rightPower*12000);
     }
 }

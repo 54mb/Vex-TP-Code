@@ -5,15 +5,18 @@
 //  Created by Sam Burton on 03/11/2018.
 //
 
+#ifndef __DRIVE__
+#define __DRIVE__
+
 #include "main.h"
 #include <stdio.h>
 #include <vector>
 
 class Drive {
 private:
-    vex::brain* driveBrain;
-    vector<vex::motor*> leftMotors, rightMotors;
-    vex::controller::axis *leftSideJoy, *rightSideJoy, *powerJoy, *turnJoy;
+    pros::Controller* controller;
+    std::vector<pros::Motor*> motorsLeft, motorsRight;
+    pros::controller_analog_e_t leftSideJoy, rightSideJoy, powerJoy, turnJoy;
     bool arcadeMode;
     double deadZone, ticksPerTile, ticksPerDegree, slewRate, rightPower, leftPower;
     double temperature, power, current;
@@ -23,13 +26,13 @@ private:
     double turnAccepted, turnRate, turnPulse, pulseTime, pulsePause, minSpeed, maxTurn;
     bool autonComplete;
     double currentTime, recordedTime;
-    double leftSpeed, rightSpeed, leftRunSpeed, rightRunSpeed, recordedDistLeft, recordedDistRight, minForward, lastAngle;
+    double leftSpeed, rightSpeed, leftRunSpeed, rightRunSpeed, recordedDistLeft, recordedDistRight, minForward, lastAngle, currentDist;
     bool speedOverride, controlsSet;
     int turnMode;
     
     double xPosition, yPosition, lastDirection, lastRightEnc, lastLeftEnc, trackingTicksPerTile, trackingTicksPerDegree;
     double targetX, targetY, targetS;
-    bool driveingToPos;
+    bool drivingToPos;
     
 public:
     // CONSTRUCTOR
@@ -38,20 +41,21 @@ public:
     
     
     // CONFIG
-    void setBrain(vex::brain*); // sets brain (for timers)
-    void addMotorLeft(vex::motor*); // adds motor to left side
-    void addMotorRight(vex::motor*);    // adds motor to right side
+    void setController(pros::Controller*);  // sets controller
+    void addMotorLeft(pros::Motor*); // adds motor to left side
+    void addMotorRight(pros::Motor*);    // adds motor to right side
     
     
     // DRIVER PREFERENCES
     void setSlewRate(double);       // sets slew rate of drive motors
     void setDeadZone(double);   // enables and sets deadzone on joysticks
-    void setTankJoy(vex::controller::axis*,vex::controller::axis*); // sets tank controls
-    void setArcadeJoy(vex::controller::axis*,vex::controller::axis*);   // sets arcade controls
+    void setTankJoy(pros::controller_analog_e_t,pros::controller_analog_e_t); // sets tank controls
+    void setArcadeJoy(pros::controller_analog_e_t,pros::controller_analog_e_t);   // sets arcade controls
     
     
     // POSITION TRACKING
     void setPosition(double, double);   // sets the position of the drive
+    void setPosition(double, double, double);   // sets the position & direction of the drive
     void setDirection(double);  // 'tells' robot its current direction
     void setTrackingTicksPerTile(double);       // set converts for tracking
     void setTrackingTicksPerDegree(double);
@@ -87,11 +91,11 @@ public:
     void driveCustom(double, double, double);   // auto drive until terminated : speed, direction, distance, timeout
     void turnTo(double, double);    // auto turn to angle : angle, timeout
     void turnRelative(double, double);  // auto turn relative : angle, timeout
-    void turnRelativeEncoder(double, double) // auto turn relative with encoders
+    void turnRelativeEncoder(double, double); // auto turn relative with encoders
     void runAtSpeed(double);    // constant speed override straight line
     void runAtSpeeds(double, double);   // constant speed override turn/curve
-    void turnToPoint(double, double);            // turn to face point on field
-    void driveTo(double, double, double);   // drive to point on field
+    void turnToPoint(double, double, double);            // turn to face point on field
+    void driveTo(double, double, double, double);   // drive to point on field
     void stop();    // stop any auto movement
     
     
@@ -102,3 +106,4 @@ public:
 
 
 
+#endif
