@@ -22,3 +22,18 @@ Once youve got all of them
 > git commit -m "update message in quotes"
 
 > git push
+
+
+Pros Setup...
+> Get latest version of Python https://www.python.org/downloads/
+
+> Follow steps here: https://github.com/purduesigbots/pros-cli3/releases
+
+
+Pros Commands:
+
+> prosv5 new-project [project name]
+
+> prosv5 make
+
+> prosv5 make all
