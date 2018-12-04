@@ -33,7 +33,13 @@ Pros Setup...
 Pros Commands:
 
 > prosv5 new-project [project name]
+creates new project
 
 > prosv5 make
+compiles changes
 
 > prosv5 make all
+compiles everything
+
+>prosv5 upload
+uploads to controller
