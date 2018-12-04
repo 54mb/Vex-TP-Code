@@ -1,4 +1,5 @@
 #include "main.h"
+#include "BallBot.h"
 
 void on_center_button() {
 	static bool pressed = false;
@@ -21,6 +22,13 @@ void initialize() {
 	pros::lcd::set_text(1, "Hello PROS User!");
 
 	pros::lcd::register_btn1_cb(on_center_button);
+    
+    initAll();
+    
+    // Set up drive, flywheel, arm, wrist, and flipper
+    
+    
+    
 }
 
 /**

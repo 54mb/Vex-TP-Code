@@ -57,11 +57,11 @@
             "-fdiagnostics-color",
             "--std=gnu++17",
             "-o",
-            "bin/drive.cpp.o",
-            "src/drive.cpp"
+            "bin/posmech.cpp.o",
+            "src/posmech.cpp"
         ],
         "directory": "/Users/Sam2.0/Desktop/VexCode/BallBot",
-        "file": "src/drive.cpp"
+        "file": "src/posmech.cpp"
     },
     {
         "arguments": [
@@ -121,11 +121,11 @@
             "-fdiagnostics-color",
             "--std=gnu++17",
             "-o",
-            "bin/posmech.cpp.o",
-            "src/posmech.cpp"
+            "bin/speedmech.cpp.o",
+            "src/speedmech.cpp"
         ],
         "directory": "/Users/Sam2.0/Desktop/VexCode/BallBot",
-        "file": "src/posmech.cpp"
+        "file": "src/speedmech.cpp"
     },
     {
         "arguments": [
@@ -153,11 +153,11 @@
             "-fdiagnostics-color",
             "--std=gnu++17",
             "-o",
-            "bin/speedmech.cpp.o",
-            "src/speedmech.cpp"
+            "bin/initialize.cpp.o",
+            "src/initialize.cpp"
         ],
         "directory": "/Users/Sam2.0/Desktop/VexCode/BallBot",
-        "file": "src/speedmech.cpp"
+        "file": "src/initialize.cpp"
     },
     {
         "arguments": [
@@ -217,10 +217,10 @@
             "-fdiagnostics-color",
             "--std=gnu++17",
             "-o",
-            "bin/initialize.cpp.o",
-            "src/initialize.cpp"
+            "bin/drive.cpp.o",
+            "src/drive.cpp"
         ],
         "directory": "/Users/Sam2.0/Desktop/VexCode/BallBot",
-        "file": "src/initialize.cpp"
+        "file": "src/drive.cpp"
     }
 ]

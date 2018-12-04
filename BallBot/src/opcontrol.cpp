@@ -16,19 +16,16 @@
 
 // 
 extern Drive drive;
-extern PositionMachine arm;
-extern SpeedMachine flyWheel;
 
 
 
 void opcontrol() {
     
-    setUp();
+    pros::Task flywheelTask (runFlywheel);
+    pros::Task armTask (runArm);
     
 	while (true) {
         
-        arm.run();
-        flyWheel.run();
         drive.run();
         
 		pros::delay(20);
