@@ -23,6 +23,9 @@ void opcontrol() {
     arm.addMotor(&left_mtr);
     arm.addMotor(&right_mtr);
     arm.setController(&master);
+    // Eg. SpeedMech setup
+    SpeedMachine flyWheel = SpeedMachine();
+    flyWheel.addMotor(&right_mtr);
     
 	while (true) {
 		pros::lcd::print(0, "%d %d %d", (pros::lcd::read_buttons() & LCD_BTN_LEFT) >> 2,

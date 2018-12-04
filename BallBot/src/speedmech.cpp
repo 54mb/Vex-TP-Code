@@ -33,7 +33,7 @@ SpeedMachine::~SpeedMachine() {
 
 // CONFIG
 
-void SpeedMachine::addMotor(vex::motor*) {
+void SpeedMachine::addMotor(pros::Motor* newMotor) {
     motors.push_back(newMotor);
 }
 void SpeedMachine::setPowers(double l, double h) {
@@ -59,7 +59,7 @@ double SpeedMachine::getSpeed() {
 double SpeedMachine::getTemperature() {
     double tot = 0;
     for (int i = 0; i < motors.size(); i++) {
-        tot += motors[i]->temperature(vex::percentUnits::pct);
+        tot += motors[i]->get_temperature();
     }
     temperature = tot/motors.size();
     return temperature;
@@ -67,7 +67,7 @@ double SpeedMachine::getTemperature() {
 double SpeedMachine::getPower() {
     double tot = 0;
     for (int i = 0; i < motors.size(); i++) {
-        tot += motors[i]->power(vex::powerUnits::watt);
+        tot += motors[i]->get_power();
     }
     power = tot/motors.size();
     return power;
@@ -75,7 +75,7 @@ double SpeedMachine::getPower() {
 double SpeedMachine::getCurrent() {
     double tot = 0;
     for (int i = 0; i < motors.size(); i++) {
-        tot += motors[i]->current(vex::currentUnits::amp);
+        tot += motors[i]->get_current_draw();
     }
     current = tot/motors.size();
     return current;
@@ -111,13 +111,13 @@ bool SpeedMachine::isWithinRange() {    // checks if the speed we're at is close
 }
 void SpeedMachine::resetEncoders() {
     for (int i = 0; i < motors.size(); i++) {
-        motors[i]->resetRotation();
+        motors[i]->tare_position();
     }
 }
 void SpeedMachine::calcSpeed() {
     double tot = 0;
     for (int i = 0; i < motors.size(); i++) {
-        tot += motors[i]->velocity(vex::velocityUnits::pct);
+        tot += motors[i]->get_actual_velocity();
     }
     tot *= scale;
     speed = tot;
@@ -168,7 +168,7 @@ void SpeedMachine::run() {
     
     // run the motors
     for (int i = 0; i < motors.size(); i++) {
-        motors[i]->spin(vex::directionType::fwd, power, vex::velocityUnits::pct);
+        motors[i]->move_voltage(power*12000);
     }
     
 }

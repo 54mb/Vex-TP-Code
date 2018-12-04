@@ -5,6 +5,9 @@
 //  Created by Sam Burton on 03/11/2018.
 //
 
+#ifndef __SPEEDMECH__
+#define __SPEEDMECH__
+
 #include "main.h"
 #include <stdio.h>
 #include <vector>
@@ -15,7 +18,7 @@ private:
     double speed, targetSpeed, difference, scale, highPow, lowPow, range, runSpeed;
     double temperature, power, current;
     bool running, speedOverride, withinRange;
-    std::vector<vex::motor*> motors;
+    std::vector<pros::Motor* > motors;
     
 public:
     
@@ -24,7 +27,7 @@ public:
     ~SpeedMachine();    // destructor
     
     // CONFIG
-    void addMotor(vex::motor*); // add a motor to the machine
+    void addMotor(pros::Motor*); // add a motor to the machine
     void setPowers(double, double); // set power levels for 'Bang-Bang'
     void setRange(double);  // set range
     void setScale(double);  // set scale
@@ -54,3 +57,4 @@ public:
     void run(); // runs the machine
 };
 
+#endif

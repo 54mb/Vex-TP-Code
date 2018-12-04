@@ -35,7 +35,7 @@
 #define PROS_USE_LITERALS
 
 #include "api.h"
-#include "../src/posmech.h"
+#include "usclib.h"
 
 /**
  * You should add more #includes here
