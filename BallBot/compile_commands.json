@@ -25,11 +25,11 @@
             "-fdiagnostics-color",
             "--std=gnu++17",
             "-o",
-            "bin/initialize.cpp.o",
-            "src/initialize.cpp"
+            "bin/posmech.cpp.o",
+            "src/posmech.cpp"
         ],
         "directory": "/Users/Sam2.0/Desktop/VexCode/BallBot",
-        "file": "src/initialize.cpp"
+        "file": "src/posmech.cpp"
     },
     {
         "arguments": [
@@ -121,10 +121,10 @@
             "-fdiagnostics-color",
             "--std=gnu++17",
             "-o",
-            "bin/posmech.cpp.o",
-            "src/posmech.cpp"
+            "bin/initialize.cpp.o",
+            "src/initialize.cpp"
         ],
         "directory": "/Users/Sam2.0/Desktop/VexCode/BallBot",
-        "file": "src/posmech.cpp"
+        "file": "src/initialize.cpp"
     }
 ]
