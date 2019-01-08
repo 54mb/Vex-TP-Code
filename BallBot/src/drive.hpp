@@ -8,7 +8,7 @@
 #ifndef __DRIVE__
 #define __DRIVE__
 
-#include "main.h"
+
 #include <stdio.h>
 #include <vector>
 #include <cmath>
