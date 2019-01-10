@@ -1,5 +1,5 @@
 #include "main.h"
-#include "BallBot.h"
+#include "BallBot.hpp"
 
 void on_center_button() {
 	static bool pressed = false;
@@ -26,9 +26,7 @@ void initialize() {
     initAll();
     
     // Set up drive, flywheel, arm, wrist, and flipper
-    
-    
-    
+    drive.setController(&controller);
 }
 
 /**

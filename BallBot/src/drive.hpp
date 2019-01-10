@@ -1,19 +1,20 @@
 //
-//  drive.h
+//  drive.hpp
 //  
 //
 //  Created by Sam Burton on 03/11/2018.
 //
 
-#ifndef __DRIVE__
-#define __DRIVE__
+#ifndef __DRIVEMECH__
+#define __DRIVEMECH__
 
+#include "main.h"
 
 #include <stdio.h>
 #include <vector>
 #include <cmath>
 
-class Drive {
+class DriveMachine {
 private:
     pros::Controller* controller;
     std::vector<pros::Motor*> motorsLeft, motorsRight;
@@ -37,8 +38,8 @@ private:
     
 public:
     // CONSTRUCTOR
-    Drive();    // constructor
-    ~Drive();   // destructor
+    DriveMachine();    // constructor
+    ~DriveMachine();   // destructor
     
     
     // CONFIG
@@ -104,7 +105,5 @@ public:
     void run(); // runs the drive
     
 };
-
-
 
 #endif

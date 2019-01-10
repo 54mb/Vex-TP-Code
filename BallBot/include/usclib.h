@@ -1,9 +1,8 @@
 #ifndef __USCLIB__
 #define __USCLIB__
 
-#include "../src/drive.h"
-#include "../src/posmech.h"
-#include "../src/speedmech.h"
-
+#include "../src/drive.hpp"
+#include "../src/posmech.hpp"
+#include "../src/speedmech.hpp"
 
 #endif

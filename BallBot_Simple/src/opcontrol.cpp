@@ -18,6 +18,8 @@
 #include "main.h"
 #include "BallBotAutons.h"
 
+using namespace pros;
+
 
 #define TURBO E_MOTOR_GEARSET_06
 #define SPEED E_MOTOR_GEARSET_18
@@ -30,6 +32,8 @@
 #define HIGH 1
 #define MIDDLE 2
 
+///////////////////////////////////////////////////////////////////////////
+// Controller Mapping
 // #defines for controller buttons              MAP CONTROLLER
 #define BTN_FIRE_LOW DIGITAL_L1
 #define BTN_FIRE_HIGH DIGITAL_L1
@@ -83,13 +87,11 @@
 #define GYRO_PORT 1
 
 
-using namespace pros;
+Controller controller(E_CONTROLLER_MASTER);     // Controller object
 
-Controller controller(E_CONTROLLER_MASTER);
-
+///////////////////////////////////////////////////////////////////////////////
 // Motors
-// Motor name(port, gearing, reversed, encoder_units);
-
+// Motor name(port, gearing, reversed?, encoder_units);
 // Drive Motors
 Motor drive_left_1(1, TURBO, 0, RAW);
 Motor drive_left_2(2, TURBO, 1, RAW);
@@ -97,43 +99,28 @@ Motor drive_left_3(3, TURBO, 0, RAW);
 Motor drive_right_1(4, TURBO, 1, RAW);
 Motor drive_right_2(5, TURBO, 0, RAW);
 Motor drive_right_3(6, TURBO, 1, RAW);
-
 // Flywheel Motors
 Motor flywheel_1(7, TURBO, 0, RAW);
 Motor flywheel_2(8, TURBO ,1, RAW);
 // Intake
-Motor intake_in(9, SPEED, 0, RAW);
+Motor intake_in(15, SPEED, 0, RAW);
 Motor intake_out(10, TURBO, 0, RAW);
-
 // Arm Motors
 Motor arm_1(11, TORQUE, 0, RAW);
 Motor arm_2(12, TORQUE, 1, RAW);
 // Flipper
 Motor wrist(13, TORQUE, 0, RAW);
 Motor flip(14, TORQUE, 0, RAW);
-
 // Gyro Sensor
 ADIGyro sensor_gyro(1, GYRO_PORT);
 
 
-
-// Drive control variables                  CALIBRATE (some)
+///////////////////////////////////////////////////////////////
+// Drive tuning variables (CALIBRATE)
+// Drive
 double deadZone = 10;
-bool speedOverride = false;
-double rightRunSpeed = 0;
-double leftRunSpeed = 0;
-bool autonComplete = false;
-double autoMode = DRIVEMODE_USER;
-double ticksPerTile = 363.2123;             // CALCULATE
-bool drivingToPos = false;
-double autoTimeOut = 0;
-double targetDistance = 0;
-double autoSpeed = 0;
-double minForward = 0;
-double autoTime = 0;
-bool usingGyro = true;
-// Turn control                              CALIBRATE
-double targetDirection = 0;
+double ticksPerTile = 363.2123;
+// Turn
 double turnAccepted = 1;
 double pulsePause = 5;
 double pulseTime = 5;
@@ -141,14 +128,40 @@ double minSpeed = 2;
 double maxTurn = 75;
 double turnRate = 30;
 double ticksPerDegree = 63.532;
-double turnMode = 0;
+// Tracking
+double trackingTicksPerTile = 72.123;
+double trackingTicksPerDegree = 12.1234;
 
-double direction = 0;
-
+// Drive control variables
+// Drive
+double autoMode = DRIVEMODE_USER;
+bool autonComplete = false;
+double autoTime = 0;
+bool speedOverride = false;
+double rightRunSpeed = 0;
+double leftRunSpeed = 0;
+bool drivingToPos = false;
+double autoTimeOut = 0;
+double targetDistance = 0;
+double autoSpeed = 0;
+double minForward = 0;
+bool usingGyro = true;
 double currentDist = 0;
 double recordedTime = 0;
 double recordedDistLeft = 0;
 double recordedDistRight = 0;
+double lastRightEnc = 0;
+double lastLeftEnc = 0;
+// Turn
+double targetDirection = 0;
+double turnMode = 0;
+double direction = 0;
+// Position Tracking
+double targetX = 0;
+double targetY = 0;
+double targetS = 0;
+double yPosition = 0;
+double xPosition = 0;
 
 
 // Auton Routines
@@ -197,7 +210,7 @@ int stackStep = -1;
 // Distance (tiles), low flag speed (rpm), high flag speed (rpm)
 // For each distance we record flywheel speeds needed for hitting high/low flags
 
-double flyWheelSpeeds[3][3] = {                 // CALIBRATE
+double flyWheelSpeeds[3][3] = {                 // CALIBRATE & add more
     {-100, 0, 0},   // to catch errors
     {0, 25, 50},
     {0.5, 100, 125},
@@ -233,7 +246,7 @@ void initAll() {        // called when robot activates & start of auton
     if (!hasInitialised) {
         // First time / manual init...
         // eg. calibrate gyro
-        ADIGyro sensor_gyro = ADIGyro(1, GYRO_PORT);
+        sensor_gyro = ADIGyro(1, GYRO_PORT);
     }
     hasInitialised = true;
     // Every time init...
@@ -251,8 +264,8 @@ double processEntry() {
 }
 
 
-
-// Gyro Stuff
+//////////////////////////////////////////////////////////////////////////////////
+// Gyro Stuff (To move into own file)
 // gyroDirection will be updated with 'more accurate' gyro value
 gyros gyro1,gyro2;
 
@@ -352,10 +365,22 @@ void run_gyro(void* params)
         pros::delay(20);
     }
 }
+//////////////////////////////////////////////////////////////////////////////////
+// End of gyro stuff
+//
+
+double getLeftEnc() {
+    return ( drive_left_1.get_position() + drive_left_2.get_position() + drive_left_3.get_position() ) / 3;
+}
+
+double getRightEnc() {
+    return ( drive_right_1.get_position() + drive_right_2.get_position() + drive_right_3.get_position() ) / 3;
+}
 
 
+////////////////////////////////////////////////////////////////////////////
 // Drive auton functions
-
+//
 void driveStop() {
     autoTime = 0;
     autoMode = DRIVEMODE_USER;
@@ -380,8 +405,8 @@ void driveDist(double s, double dir, double dist, double t = 10) {
     autoMode = DRIVEMODE_DIST;
     autoTimeOut = t*1000;
     recordedTime = pros::millis();
-    recordedDistLeft = ( drive_left_1.get_position() + drive_left_2.get_position() + drive_left_3.get_position() ) / 3;
-    recordedDistRight = ( drive_right_1.get_position() + drive_right_2.get_position() + drive_right_3.get_position() ) / 3;
+    recordedDistLeft = getLeftEnc();
+    recordedDistRight = getRightEnc();
     
     targetDistance = dist * ticksPerTile; + (recordedDistRight + recordedDistLeft)/2;
 }
@@ -420,11 +445,65 @@ void turnRelativeEncoder(double a, double t = -1) {
     autoTimeOut = t*1000;
     autoMode = DRIVEMODE_TURN;
     turnMode = TURNMODE_ENCODER;
-    recordedDistLeft = ( drive_left_1.get_position() + drive_left_2.get_position() + drive_left_3.get_position() ) / 3;
-    recordedDistRight = ( drive_right_1.get_position() + drive_right_2.get_position() + drive_right_3.get_position() ) / 3;
+    recordedDistLeft = getLeftEnc();
+    recordedDistRight = getRightEnc();
     targetDistance = (a * ticksPerDegree) + (recordedDistRight - recordedDistLeft)/2;
 }
 
+
+//////////////////////////////////////////////////////////////////////////////////
+// Position Tracking stuff
+//
+
+void setPosition(double x, double y, double d) {
+    xPosition = x;
+    // lastRightEnc = getRightEnc();
+    yPosition = y;
+    // lastLeftEnc = getLeftEnc();
+    direction = d;
+}
+
+void trackPosition() {
+    double leftEnc = getLeftEnc();      // get encoder values from motors
+    double rightEnc = getRightEnc();
+    double leftDiff = leftEnc - lastLeftEnc;   // Find encoder changes
+    double rightDiff = rightEnc- lastRightEnc;
+    
+    double angleChange = (rightDiff - leftDiff)/2;  // Find angle change
+    angleChange *= trackingTicksPerDegree;
+    
+    double distChange = (leftDiff + rightDiff)/2;   // Find lin. dist change
+    distChange *= trackingTicksPerTile;
+    
+    direction += angleChange;   // Find cumulative direction
+    xPosition += distChange * cos(direction * M_PI / 180);  // find cumulative xPos
+    yPosition += distChange * sin(direction * M_PI / 180);  // find cumulative yPoS
+    
+    lastLeftEnc = leftEnc;  // remember last values for next comparison
+    lastRightEnc = rightEnc;
+}
+
+ void turnToPoint(double x, double y, double t = -1) {
+    double dx = x - xPosition;
+    double dy = y - yPosition;
+    double dir = atan(dy/dx);
+    turnTo(dir);
+}
+void driveTo(double s, double x, double y, double t = 10) {
+    targetX = x;
+    targetY = y;
+    targetS = s;
+    double dx = x - xPosition;
+    double dy = y - yPosition;
+    double dir = atan(dy/dx);
+    double dist = hypot(x,y);
+    driveDist(s, dir, dist, t);
+    drivingToPos = true;
+}
+
+//////////////////////////////////////////////////////////////////////////////////
+// Drive task
+// Interprets user input & auton commands and sends to drive motors
 
 void run_drive(void* params) {
     
@@ -443,44 +522,50 @@ void run_drive(void* params) {
     while (true) {
         
         if (usingGyro) {
-            direction = gyroDirection;
+            direction = gyroDirection;  // gyroDirection is updated by gyro code, direction is used by drive code
         }
         else {
             // maybe using compass/encoders?
+            // direction = compassDirection
         }
         
         // This is where the fun begins
         
-        //trackPosition();        // keep track of where we are on the field        // CHANGE
+        trackPosition();        // keep track of where we are on the field        // CHANGE
         
         double forward = 0;
         double turn = 0;
         
         // Calculate useful information
-        currentTime = pros::millis();
+        currentTime = pros::millis();           // current time to determine if timed out
         
-        double currentDistLeft = ( drive_left_1.get_position() + drive_left_2.get_position() + drive_left_3.get_position() ) / 3;
-        double currentDistRight = ( drive_right_1.get_position() + drive_right_2.get_position() + drive_right_3.get_position() ) / 3;
+        // find where encoders are right now
+        double currentDistLeft = getLeftEnc();
+        double currentDistRight = getRightEnc();
         currentDist = (currentDistRight + currentDistLeft)/2;
         
+        if (controller.get_digital(BTN_ABORT)) {    // if user wants to abort, stop auton move
+            autoMode = DRIVEMODE_USER;
+        }
+        
         // auto functions
-        if (autoMode != DRIVEMODE_USER) {
+        if (autoMode != DRIVEMODE_USER) {   // If auton is asking for drive to move
             
             if (drivingToPos) {         // keep calculating new angle & distance to stay on-target
-                // driveTo(targetS, targetX, targetY);
+                // Must write position tracking algorythm first
+                driveTo(targetS, targetX, targetY);
             }
             
-            forward = autoSpeed;
+            forward = autoSpeed;        // autoSpeed is speed asked for, forward will be sent to drive motors
             
-            if (autoMode == DRIVEMODE_TURN)  {
+            if (autoMode == DRIVEMODE_TURN)  {  // if we are only turning, make translational speed 0
                 forward = 0;
                 autoSpeed = 0;
             }
             
-            if (autoMode == DRIVEMODE_DIST) {
-                forward *= abs(((targetDistance - currentDist)/(1*ticksPerTile) + minForward));
-                // slow down when within 1 tile
-                if (forward > 100) forward = 100;
+            if (autoMode == DRIVEMODE_DIST) {   // If auto move should end with a distance
+                forward *= abs(((targetDistance - currentDist)/(1*ticksPerTile) + minForward)); // slow down when within 1 tile
+                if (forward > 100) forward = 100;   // Cap max and min speed
                 if (forward < -100) forward = -100;
                 
                 // Terminate contition for distance
@@ -492,9 +577,8 @@ void run_drive(void* params) {
                 }
             }
             
-            if (currentTime > autoTimeOut && autoTimeOut > 0) {
+            if (currentTime > autoTimeOut && autoTimeOut > 0) {     // If auton move has timed out, stop driving
                 autonComplete = true;
-                drivingToPos = false;
             }
             
             // Turn code
@@ -579,14 +663,14 @@ void run_drive(void* params) {
             
             lastAngle = angle;
             
-            
-            // Auto-move is complete, so stop moving
-            if (autonComplete) {
-                autoMode = DRIVEMODE_USER;
-                forward = 0;
-                turn = 0;
-                autoSpeed = 0;
-            }
+        }
+        // Auto-move is complete, so stop moving
+        if (autonComplete) {
+            autoMode = DRIVEMODE_USER;
+            forward = 0;
+            turn = 0;
+            autoSpeed = 0;
+            drivingToPos = false;
         }
         
         // User controls

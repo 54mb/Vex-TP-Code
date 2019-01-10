@@ -5,7 +5,7 @@
 //  Created by Sam Burton on 03/11/2018.
 //
 
-#include "drive.h"
+#include "drive.hpp"
 
 
 
@@ -21,7 +21,7 @@
 
 // CONSTRUCTOR
 
-Drive::Drive() {
+DriveMachine::DriveMachine() {
     
     // CONFIG
     
@@ -85,39 +85,39 @@ Drive::Drive() {
     drivingToPos = false;
     
 }
-Drive::~Drive() {
+DriveMachine::~DriveMachine() {
     
 }
 
 
 // CONFIG
 
-void Drive::setController(pros::Controller* c){
+void DriveMachine::setController(pros::Controller* c){
     controller = c;
 }
-void Drive::addMotorLeft(pros::Motor* m) {
+void DriveMachine::addMotorLeft(pros::Motor* m) {
     motorsLeft.push_back(m);
 }
-void Drive::addMotorRight(pros::Motor* m) {
+void DriveMachine::addMotorRight(pros::Motor* m) {
     motorsRight.push_back(m);
 }
 
 
 // DRIVER PREFERENCES
 
-void Drive::setSlewRate(double r) {
+void DriveMachine::setSlewRate(double r) {
     slewRate = r;
 }
-void Drive::setDeadZone(double d) {
+void DriveMachine::setDeadZone(double d) {
     deadZone = d;
 }
-void Drive::setTankJoy(pros::controller_analog_e_t l,pros::controller_analog_e_t r) {
+void DriveMachine::setTankJoy(pros::controller_analog_e_t l,pros::controller_analog_e_t r) {
     arcadeMode = false;
     leftSideJoy = l;
     rightSideJoy = r;
     controlsSet = true;
 }
-void Drive::setArcadeJoy(pros::controller_analog_e_t p,pros::controller_analog_e_t t) {
+void DriveMachine::setArcadeJoy(pros::controller_analog_e_t p,pros::controller_analog_e_t t) {
     arcadeMode = true;
     powerJoy = p;
     turnJoy = t;
@@ -127,29 +127,29 @@ void Drive::setArcadeJoy(pros::controller_analog_e_t p,pros::controller_analog_e
 
 // POSITION TRACKING
 
-void Drive::setPosition(double x, double y) {
+void DriveMachine::setPosition(double x, double y) {
     xPosition = x;
     // lastRightEnc = getRightEnc();
     yPosition = y;
     // lastLeftEnc = getLeftEnc();
 }
-void Drive::setPosition(double x, double y, double d) {
+void DriveMachine::setPosition(double x, double y, double d) {
     xPosition = x;
     // lastRightEnc = getRightEnc();
     yPosition = y;
     // lastLeftEnc = getLeftEnc();
     direction = d;
 }
-void Drive::setDirection(double d) {
+void DriveMachine::setDirection(double d) {
     direction = d;
 }
-void Drive::setTrackingTicksPerTile(double t) {
+void DriveMachine::setTrackingTicksPerTile(double t) {
     trackingTicksPerTile = t;
 }
-void Drive::setTrackingTicksPerDegree(double d) {
+void DriveMachine::setTrackingTicksPerDegree(double d) {
     trackingTicksPerDegree = d;
 }
-void Drive::trackPosition() {
+void DriveMachine::trackPosition() {
     double leftDiff = getLeftEnc() - lastLeftEnc;   // Find encoder changes
     double rightDiff = getRightEnc() - lastRightEnc;
     
@@ -167,10 +167,10 @@ void Drive::trackPosition() {
 
 // STATE GETTERS
 
-double Drive::getDirection() {
+double DriveMachine::getDirection() {
     return direction;
 }
-double Drive::getRightEnc() {
+double DriveMachine::getRightEnc() {
     double tot = 0;
     for (int i = 0; i < motorsRight.size(); i++) {
         tot += motorsRight[i]->get_position();
@@ -178,7 +178,7 @@ double Drive::getRightEnc() {
     tot/=(motorsRight.size());
     return tot;
 }
-double Drive::getLeftEnc() {
+double DriveMachine::getLeftEnc() {
     double tot = 0;
     for (int i = 0; i < motorsLeft.size(); i++) {
         tot += motorsLeft[i]->get_position();
@@ -186,7 +186,7 @@ double Drive::getLeftEnc() {
     tot/=(motorsLeft.size());
     return tot;
 }
-double Drive::getTemperature() {
+double DriveMachine::getTemperature() {
     double tot = 0;
     for (int i = 0; i < motorsLeft.size(); i++) {
         tot += motorsLeft[i]->get_temperature();
@@ -197,7 +197,7 @@ double Drive::getTemperature() {
     temperature = tot/(motorsLeft.size()+motorsRight.size());
     return temperature;
 }
-double Drive::getPower() {
+double DriveMachine::getPower() {
     double tot = 0;
     for (int i = 0; i < motorsLeft.size(); i++) {
         tot += motorsLeft[i]->get_power();
@@ -208,7 +208,7 @@ double Drive::getPower() {
     power = tot/(motorsLeft.size()+motorsRight.size());
     return power;
 }
-double Drive::getCurrent() {
+double DriveMachine::getCurrent() {
     double tot = 0;
     for (int i = 0; i < motorsLeft.size(); i++) {
         tot += motorsLeft[i]->get_current_draw();
@@ -223,44 +223,44 @@ double Drive::getCurrent() {
 
 // SETTERS FOR AUTON TUNING
 
-void Drive::setTicksPerTile(double t) {
+void DriveMachine::setTicksPerTile(double t) {
     ticksPerTile = t;
 }
-void Drive::setTicksPerDegree(double t) {
+void DriveMachine::setTicksPerDegree(double t) {
     ticksPerDegree = t;
 }
-void Drive::setMinForwardSpeed(double d) {
+void DriveMachine::setMinForwardSpeed(double d) {
     minForward = d;
 }
-void Drive::setTimeOut(double t) {
+void DriveMachine::setTimeOut(double t) {
     autoTimeOut = t*1000;
 }
-void Drive::setTurnMode(int m) {
+void DriveMachine::setTurnMode(int m) {
     turnMode = m;
 }
-void Drive::setTurnAccepted(double t) {
+void DriveMachine::setTurnAccepted(double t) {
     turnAccepted = t;
 }
-void Drive::setTurnRate(double t) {
+void DriveMachine::setTurnRate(double t) {
     turnRate = t;
 }
-void Drive::setPulseTime(double p) {
+void DriveMachine::setPulseTime(double p) {
     pulseTime = p;
 }
-void Drive::setPulsePause(double p) {
+void DriveMachine::setPulsePause(double p) {
     pulsePause = p;
 }
-void Drive::setMinTurnSpeed(double m) {
+void DriveMachine::setMinTurnSpeed(double m) {
     minSpeed = m;
 }
-void Drive::setMaxTurnSpeed(double m) {
+void DriveMachine::setMaxTurnSpeed(double m) {
     maxTurn = m;
 }
 
 
 // AUTON FUNCTIONS
 
-void Drive::driveTime(double s, double d, double t) {
+void DriveMachine::driveTime(double s, double d, double t) {
     // speed, direction, distance, time
     autoSpeed = s;
     autoMode = DRIVEMODE_TIME;
@@ -268,7 +268,7 @@ void Drive::driveTime(double s, double d, double t) {
     targetDirection = d;
     recordedTime = pros::millis();
 }
-void Drive::driveDist(double s, double dir, double dist, double t = 10) {
+void DriveMachine::driveDist(double s, double dir, double dist, double t = 10) {
     // speed, direction, distance, timeout
     autoSpeed = s;
     targetDirection = dir;
@@ -280,7 +280,7 @@ void Drive::driveDist(double s, double dir, double dist, double t = 10) {
     
     targetDistance = dist * ticksPerTile; + (recordedDistRight + recordedDistLeft)/2;
 }
-void Drive::driveCustom(double s, double d, double t = 10) {
+void DriveMachine::driveCustom(double s, double d, double t = 10) {
     // speed, direction, timeout
     recordedTime = pros::millis();
     autoSpeed = s;
@@ -288,7 +288,7 @@ void Drive::driveCustom(double s, double d, double t = 10) {
     autoTimeOut = t*1000;
     targetDirection = d;
 }
-void Drive::turnTo(double a, double t = -1) {
+void DriveMachine::turnTo(double a, double t = -1) {
     // angle, timeout
     recordedTime = pros::millis();
     targetDirection = a;
@@ -296,7 +296,7 @@ void Drive::turnTo(double a, double t = -1) {
     autoMode = DRIVEMODE_TURN;
     turnMode = TURNMODE_GYRO;
 }
-void Drive::turnRelative(double a, double t = -1) {
+void DriveMachine::turnRelative(double a, double t = -1) {
     // angle, timeout
     recordedTime = pros::millis();
     targetDirection = direction + a;
@@ -304,7 +304,7 @@ void Drive::turnRelative(double a, double t = -1) {
     autoMode = DRIVEMODE_TURN;
     turnMode = TURNMODE_GYRO;
 }
-void Drive::turnRelativeEncoder(double a, double t = -1) {
+void DriveMachine::turnRelativeEncoder(double a, double t = -1) {
     // angle, timeout
     recordedTime = pros::millis();
     targetDirection = direction + a;
@@ -315,23 +315,23 @@ void Drive::turnRelativeEncoder(double a, double t = -1) {
     recordedDistRight = getRightEnc();
     targetDistance = (a * ticksPerDegree) + (recordedDistRight - recordedDistLeft)/2;
 }
-void Drive::runAtSpeed(double s) {
+void DriveMachine::runAtSpeed(double s) {
     leftRunSpeed = s;
     rightRunSpeed = s;
     speedOverride = true;
 }
-void Drive::runAtSpeeds(double l, double r) {
+void DriveMachine::runAtSpeeds(double l, double r) {
     leftRunSpeed = l;
     rightRunSpeed = r;
     speedOverride = true;
 }
-void Drive::turnToPoint(double x, double y, double t = -1) {
+void DriveMachine::turnToPoint(double x, double y, double t = -1) {
     double dx = x - xPosition;
     double dy = y - yPosition;
     double dir = atan(dy/dx);
     turnTo(dir);
 }
-void Drive::driveTo(double s, double x, double y, double t = 10) {
+void DriveMachine::driveTo(double s, double x, double y, double t = 10) {
     drivingToPos = true;
     targetX = x;
     targetY = y;
@@ -342,7 +342,7 @@ void Drive::driveTo(double s, double x, double y, double t = 10) {
     double dist = hypot(x,y);
     driveDist(s, dir, dist, t);
 }
-void Drive::stop() {
+void DriveMachine::stop() {
     autoTime = 0;
     autoMode = DRIVEMODE_USER;
     autoSpeed = 0;
@@ -353,7 +353,7 @@ void Drive::stop() {
 
 // CALL EVERY LOOP
 
-void Drive::run() {
+void DriveMachine::run() {
     // This is where the fun begins
     
     trackPosition();        // keep track of where we are on the field

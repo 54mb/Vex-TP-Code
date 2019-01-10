@@ -5,64 +5,7 @@
 //  Created by Sam Burton on 04/12/2018.
 //
 
-#include "BallBot.h"
-
-// Auton Routines
-extern int autonSelect;
-extern double defaultAuton[];
-extern double auton1[];
-
-// Declare objects as globals
-Drive drive = Drive();
-SpeedMachine flyWheel = SpeedMachine();
-PositionMachine arm = PositionMachine();
-PositionMachine wrist = PositionMachine();
-PositionMachine flipper = PositionMachine();
-
-pros::Controller controller(pros::E_CONTROLLER_MASTER);
-
-pros::Motor intakeInner(1);
-pros::Motor intakeOuter(2);
-
-double gyroDirection = 0;
-bool hasInitialised = false;
-
-// Declare and initialize any global flags we need:
-// Control mode
-int controlMode = FLYWHEEL;
-
-// Auton Control
-double* autonCommand = &defaultAuton[0];    // default auto routine
-
-// For Flywheel
-int autoFireState = -1;         // -1 for neutral, 1 for 'aim&spin&fire', 2 for 'spin & fire', 3 for 'fire!'
-int targetFlag = 1;             // 1 for low, 2 for high, 3 for high then low
-
-//For Intake
-bool forceIntake = false;
-double intakeSpeedOuter = 0;    // speed for outer intake
-double intakeSpeedInner = 0;    // speed for inner intake
-double flyWheelDefaultSpeed = 0;    // set speed for fixed-dist fireing
-int runTillBall = 0;            // 0 = nothing, 1 = run till 1 ball in, 2 = run for two balls
-
-// For cap mechanisms
-double armSeek = -1;
-double wristSeek = -1;
-double flipperSeek = -1;
-int stackTarget = -1;
-int stackStep = -1;
-
-// Array for flywheel speed lookup'
-// Distance (tiles), low flag speed (rpm), high flag speed (rpm)
-// For each distance we record flywheel speeds needed for hitting high/low flags
-
-double flyWheelSpeeds[3][3] = {
-    {-100, 0, 0},   // to catch errors
-    {0, 25, 50},
-    {0.5, 100, 125},
-};
-int flyWheelSpeedsDefinition = 3;   // number of entries
-
+#include "BallBot.hpp"
 
 void initAll() {        // called when robot activates & start of auton
     if (!hasInitialised) {
@@ -73,7 +16,9 @@ void initAll() {        // called when robot activates & start of auton
     hasInitialised = true;
     // Every time init...
     // eg. tare arm position
-    
+    arm.setPosition(0);
+    wrist.setPosition(0);
+    flipper.setPosition(0);
 }
 
 
@@ -370,8 +315,8 @@ void runFlywheel(void* p) {
         
         
         // Send speeds to intake motors
-        intakeInner.move_voltage(intakeSpeedInner*12000);
-        intakeOuter.move_voltage(intakeSpeedOuter*12000);
+        mIntakeIn.move_voltage(intakeSpeedInner*12000);
+        mIntakeOut.move_voltage(intakeSpeedOuter*12000);
         
         // Run the flywheel
         flyWheel.run();

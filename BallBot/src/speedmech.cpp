@@ -5,7 +5,7 @@
 //  Created by Sam Burton on 03/11/2018.
 //
 
-#include "speedmech.h"
+#include "speedmech.hpp"
 
 
 // CONSTRUCTOR

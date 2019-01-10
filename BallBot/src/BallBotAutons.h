@@ -2,7 +2,7 @@
 #ifndef __BALLBOTAUTONS__
 #define __BALLBOTAUTONS__
 
-#include "BallBot.h"
+#include "BallBot.hpp"
 
 #define NUMBER_AUTONS 1
 int autonSelect = 1;

@@ -1,6 +1,6 @@
 #include "main.h"
+#include "BallBot.hpp"
 #include "BallBotAutons.h"
-#include "BallBot.h"
 
 
 /**
@@ -15,7 +15,7 @@
  * from where it left off.
  */
 
-extern Drive drive;
+extern DriveMachine drive;
 extern PositionMachine flipper;
 extern PositionMachine arm;
 extern PositionMachine wrist;

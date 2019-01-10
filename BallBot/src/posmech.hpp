@@ -1,5 +1,5 @@
 //
-//  posmech.h
+//  posmech.hpp
 //  
 //
 //  Created by Sam Burton on 03/11/2018.
@@ -7,6 +7,8 @@
 
 #ifndef __POSMECH__
 #define __POSMECH__
+
+#include "main.h"
 
 #include <stdio.h>
 #include <vector>

@@ -83,6 +83,10 @@ void run_gyro(void*);
     
 void initAll();
 double processEntry();
+    
+    double getRightEnc();
+    double getLeftEnc();
+    
 void driveStop();
 void driveTime();
 void driveDist();

@@ -1,5 +1,5 @@
 //
-//  speedmech.h
+//  speedmech.hpp
 //  
 //
 //  Created by Sam Burton on 03/11/2018.
@@ -7,6 +7,8 @@
 
 #ifndef __SPEEDMECH__
 #define __SPEEDMECH__
+
+#include "main.h"
 
 #include <stdio.h>
 #include <vector>

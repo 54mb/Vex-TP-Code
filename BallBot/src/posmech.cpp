@@ -5,8 +5,7 @@
 //  Created by Sam Burton on 03/11/2018.
 //
 
-#include "main.h"
-#include "posmech.h"
+#include "posmech.hpp"
 #include <cmath>
 
 // CONSTRUCTOR
