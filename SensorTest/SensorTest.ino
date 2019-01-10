@@ -5,7 +5,7 @@ void setup() {
   pinMode(PD3,OUTPUT);
   pinMode(PD4,INPUT_PULLUP);
   digitalWrite(PD2,HIGH);
-  Serial.begin(9600);
+  Serial.begin(115200);
   Serial.setTimeout(500);
   interrupts();
 }
@@ -54,7 +54,7 @@ void printStuff() {
 
 void loop() {
   digitalWrite(PD2,LOW);
-
+ 
   if (updated) {
     updated = 0;
     printStuff();

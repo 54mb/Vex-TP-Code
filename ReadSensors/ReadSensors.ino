@@ -13,7 +13,7 @@ void setup() {
   pinMode(PD4,INPUT_PULLUP);  // Button
   
   digitalWrite(PD2,LOW);
-  Serial.begin(9600);
+  Serial.begin(115200);
   lidar1.begin(0, true);
   lidar1.configure(1);
 
