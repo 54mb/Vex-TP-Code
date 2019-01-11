@@ -8,9 +8,10 @@
 // Test everything
 // Calibrate arm/wrist/flipper/flywheel/drive variables & #defines
 // Calculate flywheel speed table
-// Choose controller mapping & change #defines
-// Write vision sensor code
-// Write IR / LiDAR code
+// Choose controller mapping & change #defines - 1st version done
+// Write vision sensor code (next comp)
+// Write IR code
+// Write LiDAR code (next comp)
 //
 //
 
@@ -24,7 +25,7 @@ using namespace pros;
 #define TURBO E_MOTOR_GEARSET_06
 #define SPEED E_MOTOR_GEARSET_18
 #define TORQUE E_MOTOR_GEARSET_36
-#define RAW E_MOTOR_ENCODER_COUNTS
+#define RAW E_MOTOR_ENCODER_DEGREES
 
 #define FLYWHEEL 1
 #define ARM 2
@@ -32,54 +33,69 @@ using namespace pros;
 #define HIGH 1
 #define MIDDLE 2
 
+
+
+// ROUGH CONTROLLER MAP
+//          L2                  R2
+//          L1                  R1
+//
+//          UP                  Y
+//  RIGHT       LEFT        A       B
+//          DOWN                X
+
+
+
 ///////////////////////////////////////////////////////////////////////////
 // Controller Mapping
-// #defines for controller buttons              MAP CONTROLLER
-#define BTN_FIRE_LOW DIGITAL_L1
+// #defines for controller buttons      // CONTROLLER BUTTON
+
+#define BTN_TOGGLE DIGITAL_DOWN
+#define BTN_ABORT DIGITAL_UP
+
+// Flywheel
 #define BTN_FIRE_HIGH DIGITAL_L1
-#define BTN_FIRE_BOTH DIGITAL_L1
-#define BTN_FIRE_PRESET DIGITAL_L1
-#define BTN_INTAKE_IN DIGITAL_L1
-#define BTN_INTAKE_OUT DIGITAL_L1
-#define BTN_INTAKE_TOGGLE DIGITAL_L1
-#define BTN_ABORT DIGITAL_L1
+#define BTN_FIRE_LOW DIGITAL_L2
+#define BTN_INTAKE_IN DIGITAL_R1
+#define BTN_INTAKE_OUT DIGITAL_R2
+#define BTN_FIRE_BOTH DIGITAL_B
+#define BTN_TOGGLE_COAST DIGITAL_A
+#define BTN_TOGGLE_INTAKE DIGITAL_Y
 
-#define BTN_TOGGLE_MODE DIGITAL_L1
-
+// Arm
+#define BTN_WRIST_UP DIGITAL_RIGHT
+#define BTN_WRIST_DOWN DIGITAL_LEFT
+#define BTN_ARM_UP DIGITAL_X
+#define BTN_ARM_DOWN DIGITAL_B
+#define BTN_FLIPPER_LEFT DIGITAL_Y
+#define BTN_FLIPPER_RIGHT DIGITAL_A
+#define BTN_FLIP DIGITAL_R1
+#define BTN_WRIST DIGITAL_R2
 #define BTN_ARM_HIGH DIGITAL_L1
-#define BTN_ARM_LOW DIGITAL_L1
-#define BTN_ARM_DOWN DIGITAL_L1
-#define BTN_WRIST_VERTICAL DIGITAL_L1
-#define BTN_WRIST_FORWARD DIGITAL_L1
-#define BTN_WRIST_BACK DIGITAL_L1
-#define BTN_FLIP DIGITAL_L1
+#define BTN_ARM_LOW DIGITAL_L2
 
-#define BTN_ARM_MAN_UP DIGITAL_L1
-#define BTN_ARM_MAN_DOWN DIGITAL_L1
-#define BTN_WRIST_MAN_UP DIGITAL_L1
-#define BTN_WRIST_MAN_DOWN DIGITAL_L1
-#define BTN_FLIPPER_MAN_UP DIGITAL_L1
-#define BTN_FLIPPER_MAN_DOWN DIGITAL_L1
 
-// #defines for arm positions                   CALCULATE
-#define FLIP_POS1 0
-#define FLIP_POS2 0
-#define WRIST_BACK_POS 0
-#define WRIST_FORWARD_POS 0
-#define WRIST_VERTICAL_POS 0
-#define ARM_POS_HIGH 0
-#define ARM_POS_LOW 0
-#define ARM_POS_DOWN 0
+
+// #defines for arm positions           // CALCULATE
+#define FLIP_POS1 1                     // 1:1 Ratio, 0°
+#define FLIP_POS2 180                   // 1:1 Ratio, 180°
+#define WRIST_BACK_POS (200*3)          // 1:3 Ratio, 200°
+#define WRIST_BACKWARD_DROP_POS (-45*3) // 1:3 Ratio, -65°
+#define WRIST_FORWARD_POS (105*3)       // 1:3 Ratio, 100°
+#define WRIST_FORWARD_DROP_POS (30*3)   // 1:3 Ratio, 65°
+#define WRIST_VERTICAL_POS 1            // 1:3 Ratio, 0°
+#define ARM_POS_HIGH (135*5)            // 1:5 Ratio, 135°
+#define ARM_POS_LOW (80*5)              // 1:5 Ratio, 90°
+#define ARM_POS_DOWN 1                  // 1:5 Ratio, 0°
 
 // #defines for tuning
-#define FLYWHEEL_AIM_RANGE 5    // fire ball when within x degrees of flag
+// Flywheel
+#define FLYWHEEL_AIM_RANGE 5            // fire ball when within x degrees of flag
 
-#define armSeekRate 5
-#define wristSeekRate 5
-#define flipperSeekRate 5
-
-#define flywheelSlowSpeed 60
-#define flywheelFastSpeed 100
+// Arm - higher value is more gentle seek
+#define armSeekRate 1
+#define wristSeekRate 0.25
+#define wristSeekSlow 8
+#define flipperSeekRate 1
 
 // Gyro Stuff
 #define CSCALE 1    //Clockwise scale adjustments to counteract rotation errors
@@ -93,33 +109,34 @@ Controller controller(E_CONTROLLER_MASTER);     // Controller object
 // Motors
 // Motor name(port, gearing, reversed?, encoder_units);
 // Drive Motors
-Motor drive_left_1(1, TURBO, 0, RAW);
-Motor drive_left_2(2, TURBO, 1, RAW);
-Motor drive_left_3(3, TURBO, 0, RAW);
-Motor drive_right_1(4, TURBO, 1, RAW);
-Motor drive_right_2(5, TURBO, 0, RAW);
-Motor drive_right_3(6, TURBO, 1, RAW);
+Motor drive_left_1(1, SPEED, 0, RAW);
+Motor drive_left_2(2, SPEED, 1, RAW);
+Motor drive_left_3(3, SPEED, 0, RAW);
+Motor drive_right_1(4, SPEED, 1, RAW);
+Motor drive_right_2(5, SPEED, 0, RAW);
+Motor drive_right_3(6, SPEED, 1, RAW);
 // Flywheel Motors
-Motor flywheel_1(7, TURBO, 0, RAW);
-Motor flywheel_2(8, TURBO ,1, RAW);
+Motor flywheel_1(17, TURBO, 1, RAW);
+Motor flywheel_2(16, TURBO ,0, RAW);
 // Intake
-Motor intake_in(15, SPEED, 0, RAW);
-Motor intake_out(10, TURBO, 0, RAW);
+Motor intake_in(18, SPEED, 1, RAW);
+Motor intake_out(19, SPEED, 1, RAW);
 // Arm Motors
-Motor arm_1(11, TORQUE, 0, RAW);
-Motor arm_2(12, TORQUE, 1, RAW);
+Motor arm_1(7, SPEED, 0, RAW);
+Motor arm_2(20, SPEED, 1, RAW);
 // Flipper
-Motor wrist(13, TORQUE, 0, RAW);
-Motor flip(14, TORQUE, 0, RAW);
+Motor wrist(11, SPEED, 1, RAW);
+Motor flip(14, SPEED, 0, RAW);
 // Gyro Sensor
 ADIGyro sensor_gyro(1, GYRO_PORT);
-
+// Inner Intake Button
+ADIDigitalIn bumper_in (2);
 
 ///////////////////////////////////////////////////////////////
 // Drive tuning variables (CALIBRATE)
 // Drive
 double deadZone = 10;
-double ticksPerTile = 363.2123;
+double ticksPerTile = ( 360 / ( 2 * 3.1515 / 12 ) );
 // Turn
 double turnAccepted = 1;
 double pulsePause = 5;
@@ -127,10 +144,10 @@ double pulseTime = 5;
 double minSpeed = 2;
 double maxTurn = 75;
 double turnRate = 30;
-double ticksPerDegree = 63.532;
+double ticksPerDegree = 90;
 // Tracking
-double trackingTicksPerTile = 72.123;
-double trackingTicksPerDegree = 12.1234;
+double trackingTicksPerTile = ticksPerTile;
+double trackingTicksPerDegree = ticksPerDegree;
 
 // Drive control variables
 // Drive
@@ -187,7 +204,6 @@ int targetFlag = 1;             // 1 for low, 2 for high, 3 for high then low
 bool forceIntake = false;
 double intakeSpeedOuter = 0;    // speed for outer intake
 double intakeSpeedInner = 0;    // speed for inner intake
-double flyWheelDefaultSpeed = 0;    // set speed for fixed-dist fireing
 int runTillBall = 0;            // 0 = nothing, 1 = run till 1 ball in, 2 = run for two balls
 
 // For cap mechanisms
@@ -210,12 +226,17 @@ int stackStep = -1;
 // Distance (tiles), low flag speed (rpm), high flag speed (rpm)
 // For each distance we record flywheel speeds needed for hitting high/low flags
 
-double flyWheelSpeeds[3][3] = {                 // CALIBRATE & add more
+#define FLYWHEEL_SPEED_RANGE 30          // fire ball when within x rpm of target speed
+#define flywheelSlowSpeed 50
+#define flywheelFastSpeed 127
+
+double flyWheelDefaultSpeed = 1;    // set speed for fixed-dist fireing
+double flyWheelSpeeds[2][3] = {                 // CALIBRATE & add more
     {-100, 0, 0},   // to catch errors
-    {0, 25, 50},
-    {0.5, 100, 125},
+    {0, 400, 500},
 };
-int flyWheelSpeedsDefinition = 3;   // number of entries
+int flyWheelSpeedsDefinition = 4;   // number of entries
+double autoFireTimeout = -1;
 
 
 void setArmPos(double pos) {
@@ -565,8 +586,8 @@ void run_drive(void* params) {
             
             if (autoMode == DRIVEMODE_DIST) {   // If auto move should end with a distance
                 forward *= abs(((targetDistance - currentDist)/(1*ticksPerTile) + minForward)); // slow down when within 1 tile
-                if (forward > 100) forward = 100;   // Cap max and min speed
-                if (forward < -100) forward = -100;
+                if (forward > 127) forward = 127;   // Cap max and min speed
+                if (forward < -127) forward = -127;
                 
                 // Terminate contition for distance
                 if (autoSpeed > 0) {
@@ -680,8 +701,8 @@ void run_drive(void* params) {
             leftSpeed = controller.get_analog(ANALOG_LEFT_Y);
             rightSpeed = controller.get_analog(ANALOG_RIGHT_Y);
             
-            if (leftSpeed*leftSpeed < deadZone*deadZone) leftSpeed = 0;
-            if (rightSpeed*rightSpeed < deadZone*deadZone) rightSpeed = 0;
+            if (abs(leftSpeed) < deadZone) leftSpeed = 0;
+            if (abs(rightSpeed) < deadZone) rightSpeed = 0;
         }
         else {
             leftSpeed = forward - turn;
@@ -698,17 +719,39 @@ void run_drive(void* params) {
         rightPower = rightPower + ( (rightSpeed - rightPower) / slewRate );
         leftPower = leftPower + ( (leftSpeed - leftPower) / slewRate );
         
+        std::cout << "gyro: " << gyroDirection << std::endl;
         
         // Send speeds to drive motors
-        drive_left_1.move_voltage(leftPower*12000);
-        drive_left_2.move_voltage(leftPower*12000);
-        drive_left_3.move_voltage(leftPower*12000);
-        drive_right_1.move_voltage(rightPower*12000);
-        drive_right_2.move_voltage(rightPower*12000);
-        drive_right_3.move_voltage(rightPower*12000);
+        drive_left_1.move_voltage(leftPower * 12000 / 127);
+        drive_left_2.move_voltage(leftPower * 12000 / 127);
+        drive_left_3.move_voltage(leftPower * 12000 / 127);
+        drive_right_1.move_voltage(rightPower * 12000 / 127);
+        drive_right_2.move_voltage(rightPower * 12000 / 127);
+        drive_right_3.move_voltage(rightPower * 12000 / 127);
         
         pros::delay(20);   // don't hog cpu
     }
+}
+
+
+
+// Read flywheel motors to get its speed
+double getFlywheelSpeed() {
+    return (flywheel_1.get_actual_velocity() + flywheel_2.get_actual_velocity() ) / 2;
+}
+// Read serial input for IR sensors and Lidar distance - NEEDS IMPLEMENTATION
+bool getInnerSensor() {
+    return bumper_in.get_value();
+}
+bool getOuterSensor() {
+    return true;
+}
+double getDistance() {
+    return 0;
+}
+// Read vision sensor to get angle needed to turn
+double getRelativeAngle() {
+    
 }
 
 void run_flywheel(void* params) {
@@ -716,6 +759,8 @@ void run_flywheel(void* params) {
     bool ballIsIn = false;
     bool ballWasIn = false;
     bool justToggledAutoBall = false;
+    bool coast = false;
+    bool toggledCoast = false;
     
     while (true) {
         
@@ -727,6 +772,7 @@ void run_flywheel(void* params) {
         
         // keep flywheel at default speed
         double targetSpeed = flyWheelDefaultSpeed;
+        if (!coast) targetSpeed = 0;
         
         if (autoFireState != -1) {  // Auto fire
             
@@ -734,21 +780,21 @@ void run_flywheel(void* params) {
             double relativeAngle = 0;
             if (autoFireState <= 1) {
                 // Read sensor and find relative angle
-                
+                relativeAngle = getRelativeAngle();
                 
             }
             
             // Check lidar / ultrasonic for distance
-            double distance = 0;
+            double distance = -1;
             if (autoFireState <= 2) {
                 // Read sensor and find distance
-                
+                distance = getDistance();
                 
             }
             
             // Lookup distance in flywheelSpeeds table, & interpolate to find speed
             targetSpeed = flyWheelDefaultSpeed;
-            if (autoFireState <= 2) {
+            if (autoFireState <= 2 && distance != -1) {
                 int index = -1;
                 for (int i = 1; i < flyWheelSpeedsDefinition; i++) {
                     // Look for speed too high
@@ -780,43 +826,41 @@ void run_flywheel(void* params) {
                 }
             }
             
-            // Read flags for & set flywheel object target speed
-            //flyWheel.runAtSpeed(targetSpeed);                             CHANGE
-            
             // Read vision sensor & ask drive to turn appropriately
-            //drive.turnRelative(relativeAngle,-1);                         CHANGE
+            if (abs(relativeAngle) > 0) turnRelative(relativeAngle,autoFireTimeout);
             
             bool fireBall = false;
             // Check current speed of flywheel & if aimed
-            if ((/*flyWheel.isWithinRange()*/1 && abs(relativeAngle) < FLYWHEEL_AIM_RANGE)) {
+            if ( (abs(getFlywheelSpeed() - targetSpeed) < FLYWHEEL_SPEED_RANGE) && (abs(relativeAngle) < FLYWHEEL_AIM_RANGE) ) {
                 // Set flag for fireing ball
                 fireBall = true;
             }
             
             // Check if ball is in ready position
-            ballIsIn = false;
             // read sensors to check if ball is in
+            ballIsIn = getInnerSensor();
             
             
-            
-            if (!ballIsIn && !ballWasIn) {    // move ball into position if not already
-                intakeSpeedOuter = 100;
-                intakeSpeedInner = 25;
+            if (!ballIsIn) {    // Ball is not close yet
+                intakeSpeedOuter = 127;
+                intakeSpeedInner = 127;
             }
             
             if (fireBall) {         // aimed and running correct speed
                 // Run intake motor
-                intakeSpeedInner = 100;
-                
-                if (ballWasIn && !ballIsIn) {   // ball has left
-                    // Clear flags
-                    fireBall = false;
-                    if (targetFlag == 3) {  // wanted to shoot high then low
-                        targetFlag = 1;
-                    }
-                    else {
-                        autoFireState = -1;
-                    }
+                intakeSpeedInner = 127;
+                intakeSpeedOuter = 100;
+            }
+            if (ballWasIn && !ballIsIn) {   // ball has left
+                // Clear flags
+                fireBall = false;
+                if (targetFlag == 3) {  // wanted to shoot high then low
+                    targetFlag = 1;
+                }
+                else {
+                    autoFireState = -1;
+                    targetSpeed = flyWheelDefaultSpeed;
+                    driveStop();
                 }
             }
             
@@ -831,33 +875,37 @@ void run_flywheel(void* params) {
         if (controlMode == FLYWHEEL) {
             if (controller.get_digital(BTN_FIRE_LOW)) { // auto fire low
                 autoFireState = 1;
+                autoFireTimeout = -1;
                 targetFlag = 1;
             }
             if (controller.get_digital(BTN_FIRE_HIGH)) { // auto fire high
                 autoFireState = 1;
                 targetFlag = 2;
+                autoFireTimeout = -1;
             }
             if (controller.get_digital(BTN_FIRE_BOTH)) { // auto fire both
                 autoFireState = 1;
                 targetFlag = 3;
+                autoFireTimeout = -1;
             }
-            if (controller.get_digital(BTN_FIRE_PRESET)) { // auto fire preset
+            /*if (controller.get_digital(BTN_FIRE_PRESET)) { // auto fire preset
                 autoFireState = 3;
-            }
+                autoFireTimeout = -1;
+            }*/
             
             if (controller.get_digital(BTN_INTAKE_IN)) { // manual run intake in
-                intakeSpeedInner = 25;
-                intakeSpeedOuter = 100;
+                intakeSpeedInner = 127;
+                intakeSpeedOuter = 127;
                 runTillBall = 0;
                 forceIntake = false;
             }
             if (controller.get_digital(BTN_INTAKE_OUT)) { // manual run intake out
-                intakeSpeedInner = -25;
-                intakeSpeedOuter = -100;
+                intakeSpeedInner = -127;
+                intakeSpeedOuter = -127;
                 runTillBall = 0;
                 forceIntake = false;
             }
-            if (controller.get_digital(BTN_INTAKE_TOGGLE)) { // toggle auto ball intake
+            if (controller.get_digital(BTN_TOGGLE_INTAKE)) { // toggle auto ball intake
                 if (!justToggledAutoBall) {
                     if (runTillBall) runTillBall = 0; else runTillBall = 2;
                 }
@@ -865,6 +913,15 @@ void run_flywheel(void* params) {
             }
             else {
                 justToggledAutoBall = false;
+            }
+            if (controller.get_digital(BTN_TOGGLE_COAST)) {
+                if (!toggledCoast) {
+                    coast = !coast;
+                }
+                toggledCoast = true;
+            }
+            else {
+                toggledCoast = false;
             }
         }
         if (controller.get_digital(BTN_ABORT)) {     // cancel auto functions
@@ -874,12 +931,12 @@ void run_flywheel(void* params) {
         }
         
         if (runTillBall) {
-            if (/*read inner sensor*/false) {     // ball is not all the way in
-                intakeSpeedOuter = 100;
-                intakeSpeedInner = 25;
+            if (!getInnerSensor()) {     // ball is not all the way in
+                intakeSpeedOuter = 127;
+                intakeSpeedInner = 127;
             }
-            else if (/*read outer sensor*/false && (runTillBall == 2)) {   // 1 ball is in, but not 2
-                intakeSpeedOuter = 100;
+            else if (!getOuterSensor() && (runTillBall == 2)) {   // 1 ball is in, but not 2
+                intakeSpeedOuter = 127;
             }
         }
         
@@ -889,20 +946,29 @@ void run_flywheel(void* params) {
         double flywheelSpeed = 0;
         flywheelCurrSpeed = ( flywheel_1.get_actual_velocity() + flywheel_2.get_actual_velocity() ) / 2;
         
-        if (flywheelCurrSpeed > targetSpeed) {  // Too fast
-            flywheelSpeed = flywheelSlowSpeed;  // So run slow
-        }
-        if (flywheelCurrSpeed <= targetSpeed) { // Too slow
-            flywheelSpeed = flywheelFastSpeed;  // So run fast
+        
+        if (targetSpeed > 0) {
+            if (flywheelCurrSpeed > targetSpeed) {  // Too fast
+                flywheelSpeed = flywheelSlowSpeed;  // So run slow
+            }
+            if (flywheelCurrSpeed <= targetSpeed) { // Too slow
+                flywheelSpeed = flywheelFastSpeed;  // So run fast
+            }
         }
         
         // Set motors on flywheel
-        flywheel_1.move_voltage(flywheelSpeed * 12000);
-        flywheel_2.move_voltage(flywheelSpeed * 12000);
+        if (true) {
+            flywheel_1.move_voltage(flywheelSpeed * 12000 / 127);
+            flywheel_2.move_voltage(flywheelSpeed * 12000 / 127);
+        }
+        else {
+            flywheel_1.move_velocity(flywheelSpeed * 600 / 127);
+            flywheel_2.move_velocity(flywheelSpeed * 600 / 127);
+        }
         
         // Send speeds to intake motors
-        intake_in.move_voltage(intakeSpeedInner*12000);
-        intake_out.move_voltage(intakeSpeedOuter*12000);
+        intake_in.move_voltage(intakeSpeedInner*12000 / 127);
+        intake_out.move_voltage(intakeSpeedOuter*12000 / 127);
         
         // Remember ball info for fireing
         ballWasIn = ballIsIn;
@@ -914,6 +980,12 @@ void run_flywheel(void* params) {
 
 void run_arm(void* params) {
     bool justFlipped = false;
+    bool justShifted = false;
+    bool shifted = false;
+    bool justToggledMode = false;
+    bool justArmToggled = false;
+    bool justWristToggled = false;
+    bool slowSeek = false;
     
     while (true) {
         
@@ -922,8 +994,10 @@ void run_arm(void* params) {
         double flipperSpeed = 0;
         
         flipperPos = flip.get_position();       // Find current positions
-        wristPos = wrist.get_position();
+        wristPos = -wrist.get_position();
         armPos = (arm_1.get_position() + arm_2.get_position()) / 2;
+        
+        // std::cout << "F: " << flipperPos << " W: " << wristPos << " A: " << armPos << std::endl;
         
         // If we want to stack something, follow the steps
         switch (stackStep) {
@@ -938,8 +1012,24 @@ void run_arm(void* params) {
                 break;
         }
         
+        // Read button toggle between flywheel & arm control
+        if (controller.get_digital(BTN_TOGGLE)) {
+            if (!justToggledMode) {
+                controller.rumble(".");
+                if (controlMode == FLYWHEEL) controlMode = ARM;
+                else if (controlMode == ARM) controlMode = FLYWHEEL;
+            }
+            justToggledMode = true;
+        }
+        else {
+            justToggledMode = false;
+        }
+        
+        
+        
         // Check controller inputs
         if (controlMode == ARM) {
+            
             if (controller.get_digital(BTN_FLIP)) {     // Auto flip (180°)
                 stackStep = -1;
                 if (!justFlipped) {
@@ -955,30 +1045,84 @@ void run_arm(void* params) {
             else {
                 justFlipped = false;
             }
-            if (controller.get_digital(BTN_WRIST_BACK)) {       // Pos for backwards reach
+            
+            
+            // Manual Overrides
+            if (controller.get_digital(BTN_ARM_DOWN)) {
+                armSpeed = -100;
+                armSeek = -1;
                 stackStep = -1;
-                wristSeek = WRIST_BACK_POS;
             }
-            if (controller.get_digital(BTN_WRIST_FORWARD)) {    // Pos for collecting
+            if (controller.get_digital(BTN_ARM_UP)) {
+                armSpeed = 100;
+                armSeek = -1;
                 stackStep = -1;
-                wristSeek = WRIST_FORWARD_POS;
             }
-            if (controller.get_digital(BTN_WRIST_VERTICAL)) {   // Pos for holding
+            if (controller.get_digital(BTN_WRIST_DOWN)) {
+                wristSpeed = -100;
+                wristSeek = -1;
                 stackStep = -1;
-                wristSeek = WRIST_VERTICAL_POS;
             }
-            if (controller.get_digital(BTN_ARM_HIGH)) {         // Pos for high stack
+            if (controller.get_digital(BTN_WRIST_UP)) {
+                wristSpeed = 100;
+                wristSeek = -1;
                 stackStep = -1;
-                armSeek = ARM_POS_HIGH;
             }
-            if (controller.get_digital(BTN_ARM_LOW)) {          // Pos for low stack
+            if (controller.get_digital(BTN_FLIPPER_LEFT)) {
+                flipperSpeed = -25;
+                flipperSeek = -1;
                 stackStep = -1;
-                armSeek = ARM_POS_LOW;
             }
-            if (controller.get_digital(BTN_ARM_DOWN)) {         // Pos for collecting
+            if (controller.get_digital(BTN_FLIPPER_RIGHT)) {
+                flipperSpeed = 25;
+                flipperSeek = -1;
                 stackStep = -1;
-                armSeek = ARM_POS_DOWN;
             }
+            
+            if (controller.get_digital(BTN_WRIST)) {
+                if (!justWristToggled) {
+                    if (wristSeek != WRIST_VERTICAL_POS) {
+                        wristSeek = WRIST_VERTICAL_POS;
+                    }
+                    else {
+                        slowSeek = true;
+                        if (armSeek == ARM_POS_LOW) {
+                            wristSeek = WRIST_FORWARD_DROP_POS;
+                        }
+                        else if (armSeek == ARM_POS_HIGH) {
+                            wristSeek = WRIST_BACKWARD_DROP_POS;
+                        }
+                        else {
+                            slowSeek = false;
+                            wristSeek = WRIST_FORWARD_POS;
+                        }
+                    }
+                }
+                justWristToggled = true;
+            }
+            else {
+                justWristToggled = false;
+            }
+            if (controller.get_digital(BTN_ARM_HIGH)) {
+                slowSeek = false;
+                if (!justArmToggled) {
+                    if (armSeek == ARM_POS_HIGH) armSeek = ARM_POS_DOWN;
+                    else armSeek = ARM_POS_HIGH;
+                }
+                justArmToggled = true;
+            }
+            else if (controller.get_digital(BTN_ARM_LOW)) {
+                slowSeek = false;
+                if (!justArmToggled) {
+                    if (armSeek == ARM_POS_LOW) armSeek = ARM_POS_DOWN;
+                    else armSeek = ARM_POS_LOW;
+                }
+                justArmToggled = true;
+            }
+            else {
+                justArmToggled = false;
+            }
+            
         }
         if (controller.get_digital(BTN_ABORT)) {                // Stop all auton functions!
             wristSeek = -1;
@@ -994,8 +1138,17 @@ void run_arm(void* params) {
             if (armSpeed > 100) armSpeed = 100;
             if (armSpeed < -100) armSpeed = -100;
         }
-        if (wristSeek > 0) {
-            wristSpeed = (wristSeek - wristPos) / wristSeekRate;
+        if (wristSeek != -1) {
+            
+            double actualWristSeek = wristSeek + ( armPos * 3 / 5 );
+ 
+            if (actualWristSeek < 0) actualWristSeek = 0;
+            if (actualWristSeek > 800) actualWristSeek = 800;
+            
+            double wSR = 1;
+            if (slowSeek) wSR = wristSeekSlow;
+            
+            wristSpeed = -(actualWristSeek - wristPos) / (wristSeekRate * wSR);
             if (wristSpeed > 100) wristSpeed = 100;
             if (wristSpeed < -100) wristSpeed = -100;
         }
@@ -1006,43 +1159,11 @@ void run_arm(void* params) {
         }
         
         
-        // Manual overrides
-        if (controller.get_digital(BTN_ARM_MAN_DOWN)) {
-            armSpeed = -100;
-            armSeek = -1;
-            stackStep = -1;
-        }
-        if (controller.get_digital(BTN_ARM_MAN_UP)) {
-            armSpeed = 100;
-            armSeek = -1;
-            stackStep = -1;
-        }
-        if (controller.get_digital(BTN_WRIST_MAN_DOWN)) {
-            wristSpeed = -100;
-            wristSeek = -1;
-            stackStep = -1;
-        }
-        if (controller.get_digital(BTN_WRIST_MAN_UP)) {
-            wristSpeed = 100;
-            armSeek = -1;
-            stackStep = -1;
-        }
-        if (controller.get_digital(BTN_FLIPPER_MAN_DOWN)) {
-            flipperSpeed = -100;
-            flipperSeek = -1;
-            stackStep = -1;
-        }
-        if (controller.get_digital(BTN_FLIPPER_MAN_UP)) {
-            flipperSpeed = 100;
-            flipperSeek = -1;
-            stackStep = -1;
-        }
-        
         // Finally, send values to motors
-        flip.move_voltage(flipperSpeed * 12000);
-        wrist.move_voltage(wristSpeed * 12000);
-        arm_1.move_voltage(armSpeed * 12000);
-        arm_2.move_voltage(armSpeed * 12000);
+        flip.move_voltage(flipperSpeed * 12000 / 127);
+        wrist.move_voltage(wristSpeed * 12000 / 127);
+        arm_1.move_voltage(armSpeed * 12000 / 127);
+        arm_2.move_voltage(armSpeed * 12000 / 127);
         
         pros::delay(20);   // don't hog cpu
     }
@@ -1070,13 +1191,14 @@ void run_auton() {
     //drive.setDirection(*autonCommand);
     direction = *autonCommand;
     
+    double lidarDist = 0;
     
     while (true) {
         
         // Auton table decipherer - switch statement
         // Commands will set flags / call object funtions
         // Need commands for:
-        // DRIVE (Time, distance, whiteline)
+        // DRIVE (Time, distance, lidar)
         // TURN (Abs & relative)
         // PAUSE (Time, till ball shot)
         // SETGYRO
@@ -1101,6 +1223,11 @@ void run_auton() {
                             driveMode = dt;
                             driveDist(ds,dd,processEntry(),processEntry());
                         }
+                        else if (dt == LIDAR) {
+                            driveMode = dt;
+                            lidarDist = processEntry();         // target lidar value
+                            driveCustom(ds,dd,processEntry());  // custom drive with timeout
+                        }
                         else {
                             driveMode = dt;
                             driveCustom(ds,dd,processEntry());
@@ -1120,11 +1247,16 @@ void run_auton() {
                 case TURN_ENC:
                     turnRelativeEncoder(processEntry(),processEntry());
                     break;
+                case SET_GYRO:
+                    setGyro(processEntry());
+                    break;
                 case FIRE_PRESET:
                     autoFireState = 3;
+                    autoFireTimeout = processEntry();
                     nextCommand = true;
                     break;
                 case FIRE_AIM:
+                    autoFireTimeout = processEntry();
                     autoFireState = 1;
                     targetFlag = processEntry();
                     nextCommand = true;
@@ -1180,20 +1312,16 @@ void run_auton() {
         }
         
         
-        
-        // Read any sensors and set global variables
-        // eg. gyroDirection, etc.
-        
-        
-        
         // Auton command termination code
         // Decide if we should move to the next command
         // eg. checking timers for pause, flags for shooting balls, etc.
         bool terminateDrive = false;
-        if (driveMode == WHITELINE) {
-            if (/* read white line sensor */false) {
-                terminateDrive = true;
-            }
+        
+        if (driveMode == LIDAR) {
+            // Check if close enough going forward
+            if (ds > 0 && getDistance() <= lidarDist) terminateDrive = true;
+            // Check if far enough going backward
+            if (ds < 0 && getDistance() >= lidarDist) terminateDrive = true;
         }
         
         if (stackTarget != 0 && stackStep == -1) {
@@ -1211,7 +1339,12 @@ void run_auton() {
             if (pauseTime == FIRED && autoFireState == -1) {
                 nextCommand = true;
             }
-            if (pauseTime == GOTBALL) {}
+            if (pauseTime == GOTBALL && getInnerSensor()) {
+                nextCommand = true;
+            }
+            if (pauseTime == GOTBALLS && getInnerSensor() && getOuterSensor()) {
+                nextCommand = true;
+            }
         }
         
         if (terminateDrive) {

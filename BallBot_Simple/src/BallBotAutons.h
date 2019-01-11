@@ -35,15 +35,37 @@ int autonSelect = 1;
 #define STACK_LOW_FROM -15      // Auto stack from a step low
 #define STACK_HIGH_FROM -16     // Auto stack from a step high
 #define PAUSE -17               // Do nothing for some time
+#define SET_GYRO -18            // Set gyro to some angle
 
 #define DISTANCE -1             // Drive condition for distance based on encoders
-#define WHITELINE -2            // Drive condition looking for white line
+#define LIDAR -2                // Drive condition for distance based on lidar
 
 #define FIRED -1                // Pause condition wait till fired
 #define GOTBALL -2              // Pause condition wait till one ball
 #define GOTBALLS -3             // Pause condition wait till two balls
 
-
+/*
+ Motor drive_left_1(1, SPEED, 0, RAW);
+ Motor drive_left_2(2, SPEED, 1, RAW);
+ Motor drive_left_3(3, SPEED, 0, RAW);
+ Motor drive_right_1(4, SPEED, 1, RAW);
+ Motor drive_right_2(5, SPEED, 0, RAW);
+ Motor drive_right_3(6, SPEED, 1, RAW);
+ // Flywheel Motors
+ Motor flywheel_1(17, TURBO, 1, RAW);
+ Motor flywheel_2(16, TURBO ,0, RAW);
+ // Intake
+ Motor intake_in(18, SPEED, 1, RAW);
+ Motor intake_out(19, SPEED, 1, RAW);
+ // Arm Motors
+ Motor arm_1(7, SPEED, 0, RAW);
+ Motor arm_2(20, SPEED, 1, RAW);
+ // Flipper
+ Motor wrist(11, SPEED, 1, RAW);
+ Motor flip(14, SPEED, 0, RAW);
+ // Gyro Sensor
+ ADIGyro sensor_gyro(1, GYRO_PORT);
+ */
 
 double defaultAuton[] = {
     0,

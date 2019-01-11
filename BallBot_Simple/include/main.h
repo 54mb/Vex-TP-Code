@@ -100,6 +100,11 @@ void setFlipperPos();
 void setWristPos();
     
 void run_drive(void*);
+double getFlywheelSpeed();
+bool getInnerSensor();
+bool getOuterSensor();
+double getDistance();
+double getRelativeAngle();
 void run_flywheel(void*);
 void run_arm(void*);
 void run_auton();

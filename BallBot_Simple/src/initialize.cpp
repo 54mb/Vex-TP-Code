@@ -1,5 +1,30 @@
 #include "main.h"
 
+/*
+ #define BTN_TOGGLE DIGITAL_DOWN
+ #define BTN_ABORT DIGITAL_UP
+ 
+ // Flywheel
+ #define BTN_FIRE_HIGH DIGITAL_L1
+ #define BTN_FIRE_LOW DIGITAL_L2
+ #define BTN_INTAKE_IN DIGITAL_R1
+ #define BTN_INTAKE_OUT DIGITAL_R2
+ #define BTN_FIRE_BOTH DIGITAL_B
+ 
+ 
+ // Arm
+ #define BTN_WRIST_UP DIGITAL_RIGHT
+ #define BTN_WRIST_DOWN DIGITAL_LEFT
+ #define BTN_ARM_UP DIGITAL_X
+ #define BTN_ARM_DOWN DIGITAL_B
+ #define BTN_FLIPPER_LEFT DIGITAL_Y
+ #define BTN_FLIPPER_RIGHT DIGITAL_A
+ #define BTN_FLIP DIGITAL_R1
+ #define BTN_WRIST DIGITAL_R2
+ #define BTN_ARM_HIGH DIGITAL_L1
+ #define BTN_ARM_LOW DIGITAL_L2
+ */
+
 void on_center_button() {
     static bool pressed = false;
     pressed = !pressed;
