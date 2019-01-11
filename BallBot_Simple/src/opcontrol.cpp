@@ -40,8 +40,8 @@ using namespace pros;
 //          L1                  R1
 //
 //          UP                  Y
-//  RIGHT       LEFT        A       B
-//          DOWN                X
+//  RIGHT       LEFT        X       A
+//          DOWN                B
 
 
 
