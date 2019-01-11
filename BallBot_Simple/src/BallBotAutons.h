@@ -2,8 +2,8 @@
 #ifndef __BALLBOTAUTONS__
 #define __BALLBOTAUTONS__
 
-#define NUMBER_AUTONS 1
-int autonSelect = 1;
+#define NUMBER_AUTONS 2
+int autonSelect = 0;
 
 
 // DEFINES FOR AUTON MODES
@@ -67,13 +67,19 @@ int autonSelect = 1;
  ADIGyro sensor_gyro(1, GYRO_PORT);
  */
 
+
 double defaultAuton[] = {
     0,
     END
 };
 
 // Arrays for routines
-double auton1[] = {
+double redAuton[] = {
+    0,
+    END
+};
+
+double blueAuton[] = {
     0,
     END
 };

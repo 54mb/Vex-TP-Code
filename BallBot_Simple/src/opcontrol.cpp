@@ -16,8 +16,9 @@
 //
 
 
-#include "main.h"
 #include "BallBotAutons.h"
+#include "main.h"
+
 
 using namespace pros;
 
@@ -35,22 +36,13 @@ using namespace pros;
 
 
 
-// ROUGH CONTROLLER MAP
-//          L2                  R2
-//          L1                  R1
-//
-//          UP                  Y
-//  RIGHT       LEFT        X       A
-//          DOWN                B
-
-
-
 ///////////////////////////////////////////////////////////////////////////
 // Controller Mapping
 // #defines for controller buttons      // CONTROLLER BUTTON
 
 #define BTN_TOGGLE DIGITAL_DOWN
 #define BTN_ABORT DIGITAL_UP
+#define BTN_CHOOSE_AUTON DIGITAL_X
 
 // Flywheel
 #define BTN_FIRE_HIGH DIGITAL_L1
@@ -184,7 +176,9 @@ double xPosition = 0;
 // Auton Routines
 extern int autonSelect;
 extern double defaultAuton[];
-extern double auton1[];
+extern double redAuton[];
+extern double blueAuton[];
+
 
 double gyroDirection = 0;
 bool hasInitialised = false;
@@ -1184,7 +1178,8 @@ void run_auton() {
     int driveMode = 0;
     double pauseTime = 0;
     // Set pointer to chosen auton routine
-    if (autonSelect == 1) autonCommand = &auton1[0];
+    if (autonSelect == 0) autonCommand = &redAuton[0];
+    if (autonSelect == 1) autonCommand = &blueAuton[0];
     
     // First entry is always starting direction,
     setGyro(*autonCommand);
@@ -1381,12 +1376,23 @@ void opcontrol() {
     pros::Task driveTask (run_drive);
     pros::Task gyroTask (run_gyro);
     
-    // Start runArm, runDrive, runFlywheel as tasks
+    bool justToggledAuto = false;
     
     while (true) {
-        pros::lcd::print(0, "%d %d %d", (pros::lcd::read_buttons() & LCD_BTN_LEFT) >> 2,
-                         (pros::lcd::read_buttons() & LCD_BTN_CENTER) >> 1,
-                         (pros::lcd::read_buttons() & LCD_BTN_RIGHT) >> 0);
+        pros::lcd::print(1, "AutoMode: %d", autonSelect);
+        
+        if ( controller.get_digital(BTN_ABORT) && controller.get_digital(BTN_CHOOSE_AUTON) ) {
+            if (!justToggledAuto) {
+                autonSelect++;
+                if (autonSelect > NUMBER_AUTONS) {
+                    autonSelect = 0;
+                }
+            }
+            justToggledAuto = true;
+        }
+        else {
+            justToggledAuto = false;
+        }
         
         pros::delay(20);
     }
