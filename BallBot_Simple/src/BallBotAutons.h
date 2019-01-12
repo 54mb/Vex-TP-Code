@@ -5,7 +5,6 @@
 #define NUMBER_AUTONS 2
 int autonSelect = 0;
 
-
 // DEFINES FOR AUTON MODES
 #define DRIVEMODE_USER 0
 #define DRIVEMODE_TIME -1
@@ -24,6 +23,7 @@ int autonSelect = 0;
 #define TURN_ENC -4             // Turn for some angle using encoder ticks
 #define FIRE_PRESET -5          // Shoot flywheel at preset speed
 #define FIRE_AIM -6             // Aim and fire ball
+#define FIRE -6                 // Aim and fire ball
 #define INTAKE_ON -7            // Turn intake on
 #define INTAKE_OFF -8           // Turn intake off
 #define ARMSEEK -9              // Move arm to pos
@@ -36,6 +36,7 @@ int autonSelect = 0;
 #define STACK_HIGH_FROM -16     // Auto stack from a step high
 #define PAUSE -17               // Do nothing for some time
 #define SET_GYRO -18            // Set gyro to some angle
+#define STOP_FLYWHEEL -19       // Stop Flywheel running
 
 #define DISTANCE -1             // Drive condition for distance based on encoders
 #define LIDAR -2                // Drive condition for distance based on lidar
@@ -74,13 +75,193 @@ double defaultAuton[] = {
 };
 
 // Arrays for routines
-double redAuton[] = {
-    0,
+double blueAuton[] = {
+    180,
+
+    PAUSE,3,
+    INTAKE_ON,
+    PAUSE,GOTBALL,5,                  // WAIT TILL GOT BALL
+    
+    INTAKE_OFF,
+    
+    TURN,90,2,                     // TURN TO FACE FLAG
+    TURN,0,3,
+    DRIVE,100,0,DISTANCE,0.05,1,      // DRIVE CLOSE ENOUGH
+    
+    FIRE,                           // SHOOT HIGH FLAG
+    PAUSE,0.5,
+    PAUSE,FIRED,10,
+    PAUSE,0.5,
+    INTAKE_ON,
+    
+    STOP_FLYWHEEL,
+    
+    //SET_GYRO,0,                      // CRASHES ON SET_GYRO (setGyro();)
+    
+    DRIVE,100,0,DISTANCE,1.2,1,      // DRIVE TO LOW FLAG RANGE
+    
+    WRISTSEEK,WRIST_FORWARD_POS,    // HIT LOW FLAG
+    
+    DRIVE,-127,0,DISTANCE,0.5,1,
+    
+    FIRE,                           // SHOOT
+    PAUSE,0.5,
+    PAUSE,FIRED,10,
+    INTAKE_OFF,
+    PAUSE,0.5,
+    
+    STOP_FLYWHEEL,
+    
+    WRISTSEEK,WRIST_VERTICAL_POS,    // PUT WRIST BACK UP
+    
+    PAUSE,1,
+    
+    DRIVE,-100,0,DISTANCE,0.65,2,     // DRIVE AWAY FROM FLAG
+    TURN,90,2,                      // TURN TO FACE
+    
+    DRIVE,-70,90,0.5,                 // RESET GYRO AGAINST WALL
+    // SET_GYRO,270,
+    
+    WRISTSEEK,(WRIST_FORWARD_POS-15),    // PUT FLIPPER DOWN FOR CAP
+    
+    INTAKE_ON,
+    
+    PAUSE,2,
+    
+    //TURN,90,2,
+    
+    DRIVE,50,90,DISTANCE,1,4,       // DRIVE TO CAP
+    
+    FLIP,
+    
+    PAUSE,1,
+    
+    DRIVE,-70,90,DISTANCE,1,2,      // LINE UP FOR NEXT CAP
+    TURN,135,2,
+    DRIVE,70,135,DISTANCE,1,2,
+    DRIVE,70,90,DISTANCE,1,2,
+    
+    TURN,45,1,
+    
+    DRIVE,-70,90,DISTANCE,1,2,      // MOVE AWAY FROM CAP
+
+    TURN,20,3,
+    
+    WRISTSEEK,WRIST_VERTICAL_POS,
+    
+    DRIVE,127,20,DISTANCE,1,2,
+    
+    FIRE,                           // LONG SHOT - SHOOT
+    PAUSE,0.5,
+    PAUSE,FIRED,10,
+    INTAKE_OFF,
+    PAUSE,0.5,
+    
+    STOP_FLYWHEEL,
+    
+    DRIVE,100,20,DISTANCE,1,2,
+    
+    WRISTSEEK,WRIST_FORWARD_POS,
+    PAUSE,1,
+    WRISTSEEK,WRIST_VERTICAL_POS,
+    
+    DRIVE,-100,20,DISTANCE,1.5,2,
+    
     END
 };
 
-double blueAuton[] = {
-    0,
+double redAuton[] = {
+    180,
+    
+    PAUSE,3,
+    INTAKE_ON,
+    PAUSE,GOTBALL,5,                  // WAIT TILL GOT BALL
+    
+    INTAKE_OFF,
+    
+    TURN,270,2,                     // TURN TO FACE FLAG
+    TURN,355,3,
+    DRIVE,100,0,DISTANCE,0.1,1,      // DRIVE CLOSE ENOUGH
+    
+    FIRE,                           // SHOOT HIGH FLAG
+    PAUSE,0.5,
+    PAUSE,FIRED,10,
+    PAUSE,0.5,
+    INTAKE_ON,
+    
+    STOP_FLYWHEEL,
+    
+    //SET_GYRO,0,                      // CRASHES ON SET_GYRO (setGyro();)
+    
+    DRIVE,100,0,DISTANCE,1.35,1,      // DRIVE TO LOW FLAG RANGE
+    
+    WRISTSEEK,WRIST_FORWARD_POS,    // HIT LOW FLAG
+    
+    DRIVE,-127,0,DISTANCE,0.5,1,
+    
+    FIRE,                           // SHOOT
+    PAUSE,0.5,
+    PAUSE,FIRED,10,
+    INTAKE_OFF,
+    PAUSE,0.5,
+    
+    STOP_FLYWHEEL,
+    
+    WRISTSEEK,WRIST_VERTICAL_POS,    // PUT WRIST BACK UP
+    
+    PAUSE,1,
+    
+    DRIVE,-100,0,DISTANCE,0.65,2,     // DRIVE AWAY FROM FLAG
+    TURN,270,2,                      // TURN TO FACE
+    
+    DRIVE,-70,270,0.5,                 // RESET GYRO AGAINST WALL
+    // SET_GYRO,270,
+    
+    WRISTSEEK,(WRIST_FORWARD_POS),    // PUT FLIPPER DOWN FOR CAP
+    
+    INTAKE_ON,
+    
+    PAUSE,2,
+    
+    //TURN,90,2,
+    
+    DRIVE,50,270,DISTANCE,1,4,       // DRIVE TO CAP
+    
+    FLIP,
+    
+    PAUSE,1,
+    
+    DRIVE,-70,270,DISTANCE,1,2,      // LINE UP FOR NEXT CAP
+    TURN,225,2,
+    DRIVE,70,225,DISTANCE,1,2,
+    DRIVE,70,270,DISTANCE,1,2,
+    
+    TURN,315,1,
+    
+    DRIVE,-70,270,DISTANCE,1,2,      // MOVE AWAY FROM CAP
+    
+    TURN,325,3,
+    
+    WRISTSEEK,WRIST_VERTICAL_POS,
+    
+    DRIVE,127,325,DISTANCE,1,2,
+    
+    FIRE,                           // LONG SHOT - SHOOT
+    PAUSE,0.5,
+    PAUSE,FIRED,10,
+    INTAKE_OFF,
+    PAUSE,0.5,
+    
+    STOP_FLYWHEEL,
+    
+    DRIVE,100,325,DISTANCE,1,2,
+    
+    WRISTSEEK,WRIST_FORWARD_POS,
+    PAUSE,1,
+    WRISTSEEK,WRIST_VERTICAL_POS,
+    
+    DRIVE,-100,325,DISTANCE,1.75,2,
+    
     END
 };
 

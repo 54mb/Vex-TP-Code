@@ -16,7 +16,6 @@
 //
 
 
-#include "BallBotAutons.h"
 #include "main.h"
 
 
@@ -73,10 +72,10 @@ using namespace pros;
 #define WRIST_BACK_POS (200*3)          // 1:3 Ratio, 200°
 #define WRIST_BACKWARD_DROP_POS (-45*3) // 1:3 Ratio, -65°
 #define WRIST_FORWARD_POS (105*3)       // 1:3 Ratio, 100°
-#define WRIST_FORWARD_DROP_POS (30*3)   // 1:3 Ratio, 65°
+#define WRIST_FORWARD_DROP_POS (35*3)   // 1:3 Ratio, 65°
 #define WRIST_VERTICAL_POS 1            // 1:3 Ratio, 0°
 #define ARM_POS_HIGH (135*5)            // 1:5 Ratio, 135°
-#define ARM_POS_LOW (80*5)              // 1:5 Ratio, 90°
+#define ARM_POS_LOW (85*5)              // 1:5 Ratio, 90°
 #define ARM_POS_DOWN 1                  // 1:5 Ratio, 0°
 
 // #defines for tuning
@@ -90,10 +89,11 @@ using namespace pros;
 #define flipperSeekRate 1
 
 // Gyro Stuff
-#define CSCALE 1    //Clockwise scale adjustments to counteract rotation errors
-#define ASCALE 1    //Anti-clockwise scale adjustments to counteract rotation errors
+#define CSCALE 0.9876     //Clockwise scale adjustments to counteract rotation errors
+#define ASCALE 0.9486    //Anti-clockwise scale adjustments to counteract rotation errors
 #define GYRO_PORT 1
 
+#include "BallBotAutons.h"
 
 Controller controller(E_CONTROLLER_MASTER);     // Controller object
 
@@ -128,14 +128,16 @@ ADIDigitalIn bumper_in (2);
 // Drive tuning variables (CALIBRATE)
 // Drive
 double deadZone = 10;
-double ticksPerTile = ( 360 / ( 2 * 3.1515 / 12 ) );
+double ticksPerTile = 640;
+double minForward = 40;
+double driveLerp = 0.1;
 // Turn
 double turnAccepted = 1;
-double pulsePause = 5;
+double pulsePause = 10;
 double pulseTime = 5;
-double minSpeed = 2;
-double maxTurn = 75;
-double turnRate = 30;
+double minSpeed = 25;
+double maxTurn = 127;
+double turnRate = 150;
 double ticksPerDegree = 90;
 // Tracking
 double trackingTicksPerTile = ticksPerTile;
@@ -153,7 +155,6 @@ bool drivingToPos = false;
 double autoTimeOut = 0;
 double targetDistance = 0;
 double autoSpeed = 0;
-double minForward = 0;
 bool usingGyro = true;
 double currentDist = 0;
 double recordedTime = 0;
@@ -189,6 +190,7 @@ int controlMode = FLYWHEEL;
 
 // Auton Control
 double* autonCommand = &defaultAuton[0];    // default auto routine
+bool nextCommand = true;
 
 // For Flywheel
 int autoFireState = -1;         // -1 for neutral, 1 for 'aim&spin&fire', 2 for 'spin & fire', 3 for 'fire!'
@@ -224,7 +226,7 @@ int stackStep = -1;
 #define flywheelSlowSpeed 50
 #define flywheelFastSpeed 127
 
-double flyWheelDefaultSpeed = 1;    // set speed for fixed-dist fireing
+double flyWheelDefaultSpeed = 80;    // set speed for fixed-dist fireing
 double flyWheelSpeeds[2][3] = {                 // CALIBRATE & add more
     {-100, 0, 0},   // to catch errors
     {0, 400, 500},
@@ -261,7 +263,9 @@ void initAll() {        // called when robot activates & start of auton
     if (!hasInitialised) {
         // First time / manual init...
         // eg. calibrate gyro
+        controller.print(0,0,"Calibrating");
         sensor_gyro = ADIGyro(1, GYRO_PORT);
+        pros::delay(3000);
     }
     hasInitialised = true;
     // Every time init...
@@ -270,6 +274,7 @@ void initAll() {        // called when robot activates & start of auton
     arm_2.tare_position();
     wrist.tare_position();
     flip.tare_position();
+    controller.print(0,0,"                          ");
 }
 
 
@@ -423,7 +428,12 @@ void driveDist(double s, double dir, double dist, double t = 10) {
     recordedDistLeft = getLeftEnc();
     recordedDistRight = getRightEnc();
     
-    targetDistance = dist * ticksPerTile; + (recordedDistRight + recordedDistLeft)/2;
+    if (s > 0) {
+        targetDistance = (dist * ticksPerTile) + (recordedDistRight + recordedDistLeft)/2;
+    }
+    else {
+        targetDistance = (-dist * ticksPerTile) + (recordedDistRight + recordedDistLeft)/2;
+    }
 }
 
 void driveCustom(double s, double d, double t = 10) {
@@ -533,11 +543,14 @@ void run_drive(void* params) {
     
     double slewRate = 2;
     
+    int turnGoodCount = 0;
     
     while (true) {
         
+        //trackPosition();        // keep track of where we are on the field        // CHANGE
+        
         if (usingGyro) {
-            direction = gyroDirection;  // gyroDirection is updated by gyro code, direction is used by drive code
+            direction = gyroDirection/10;  // gyroDirection is updated by gyro code, direction is used by drive code
         }
         else {
             // maybe using compass/encoders?
@@ -545,8 +558,6 @@ void run_drive(void* params) {
         }
         
         // This is where the fun begins
-        
-        trackPosition();        // keep track of where we are on the field        // CHANGE
         
         double forward = 0;
         double turn = 0;
@@ -579,7 +590,13 @@ void run_drive(void* params) {
             }
             
             if (autoMode == DRIVEMODE_DIST) {   // If auto move should end with a distance
-                forward *= abs(((targetDistance - currentDist)/(1*ticksPerTile) + minForward)); // slow down when within 1 tile
+                double slowDown = (targetDistance - currentDist) / (0.75 * ticksPerTile);
+                
+                forward *= slowDown;
+                
+                if (autoSpeed > 0 && forward < minForward) forward = minForward;
+                if (autoSpeed < 0 && forward > minForward) forward = -minForward;
+                
                 if (forward > 127) forward = 127;   // Cap max and min speed
                 if (forward < -127) forward = -127;
                 
@@ -592,8 +609,9 @@ void run_drive(void* params) {
                 }
             }
             
-            if (currentTime > autoTimeOut && autoTimeOut > 0) {     // If auton move has timed out, stop driving
+            if (currentTime > autoTimeOut + recordedTime && autoTimeOut > 0) {     // If auton move has timed out, stop driving
                 autonComplete = true;
+                std::cout << "Time Out - ";
             }
             
             // Turn code
@@ -610,7 +628,7 @@ void run_drive(void* params) {
                 angle /= ticksPerDegree;
             }
             
-            if (angle < 0) angle += 360;
+        if (angle < 0) angle += 360;
             if (angle > 180) angle -= 360;
             
             angle /= (2 * turnRate);
@@ -671,8 +689,13 @@ void run_drive(void* params) {
             turn = angle;
             
             if (autoSpeed == 0 || autoMode == DRIVEMODE_TURN) {
-                if (abs(angle) < turnAccepted && abs(lastAngle) < turnAccepted) {
-                    autonComplete = true;
+                if (abs(direction - targetDirection) < turnAccepted) {
+                    turnGoodCount++;
+                    if (turnGoodCount > 3)
+                        autonComplete = true;
+                }
+                else {
+                    turnGoodCount = 0;
                 }
             }
             
@@ -681,11 +704,14 @@ void run_drive(void* params) {
         }
         // Auto-move is complete, so stop moving
         if (autonComplete) {
+            autonComplete = false;
             autoMode = DRIVEMODE_USER;
             forward = 0;
             turn = 0;
             autoSpeed = 0;
             drivingToPos = false;
+            nextCommand = true;
+            std::cout << "Drive Move Done: " << currentTime << std::endl;
         }
         
         // User controls
@@ -713,7 +739,7 @@ void run_drive(void* params) {
         rightPower = rightPower + ( (rightSpeed - rightPower) / slewRate );
         leftPower = leftPower + ( (leftSpeed - leftPower) / slewRate );
         
-        std::cout << "gyro: " << gyroDirection << std::endl;
+        // std::cout << "gyro: " << gyroDirection << std::endl;
         
         // Send speeds to drive motors
         drive_left_1.move_voltage(leftPower * 12000 / 127);
@@ -723,13 +749,15 @@ void run_drive(void* params) {
         drive_right_2.move_voltage(rightPower * 12000 / 127);
         drive_right_3.move_voltage(rightPower * 12000 / 127);
         
-        pros::delay(20);   // don't hog cpu
+        pros::delay(10);   // don't hog cpu
     }
 }
 
 
-
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// Flywheel
 // Read flywheel motors to get its speed
+//
 double getFlywheelSpeed() {
     return (flywheel_1.get_actual_velocity() + flywheel_2.get_actual_velocity() ) / 2;
 }
@@ -768,7 +796,17 @@ void run_flywheel(void* params) {
         double targetSpeed = flyWheelDefaultSpeed;
         if (!coast) targetSpeed = 0;
         
+        ballIsIn = getInnerSensor();
+        
         if (autoFireState != -1) {  // Auto fire
+            
+            // Move flipper out of way
+            if (flipperPos > (FLIP_POS1 + FLIP_POS2)/2) {
+                flipperSeek = FLIP_POS2;
+            }
+            else {
+                flipperSeek = FLIP_POS1;
+            }
             
             // Check vision sensor to determine necessary turn
             double relativeAngle = 0;
@@ -832,7 +870,6 @@ void run_flywheel(void* params) {
             
             // Check if ball is in ready position
             // read sensors to check if ball is in
-            ballIsIn = getInnerSensor();
             
             
             if (!ballIsIn) {    // Ball is not close yet
@@ -950,15 +987,13 @@ void run_flywheel(void* params) {
             }
         }
         
+        if (targetSpeed == flyWheelDefaultSpeed) {
+            flywheelSpeed = flyWheelDefaultSpeed;
+        }
+        
         // Set motors on flywheel
-        if (true) {
-            flywheel_1.move_voltage(flywheelSpeed * 12000 / 127);
-            flywheel_2.move_voltage(flywheelSpeed * 12000 / 127);
-        }
-        else {
-            flywheel_1.move_velocity(flywheelSpeed * 600 / 127);
-            flywheel_2.move_velocity(flywheelSpeed * 600 / 127);
-        }
+        flywheel_1.move_voltage(flywheelSpeed * 12000 / 127);
+        flywheel_2.move_voltage(flywheelSpeed * 12000 / 127);
         
         // Send speeds to intake motors
         intake_in.move_voltage(intakeSpeedInner*12000 / 127);
@@ -1010,8 +1045,13 @@ void run_arm(void* params) {
         if (controller.get_digital(BTN_TOGGLE)) {
             if (!justToggledMode) {
                 controller.rumble(".");
-                if (controlMode == FLYWHEEL) controlMode = ARM;
-                else if (controlMode == ARM) controlMode = FLYWHEEL;
+                if (controlMode == FLYWHEEL) {
+                    controlMode = ARM;
+                }
+                else if (controlMode == ARM) {
+                    controlMode = FLYWHEEL;
+                }
+                
             }
             justToggledMode = true;
         }
@@ -1174,7 +1214,6 @@ void run_auton() {
     pros::Task driveTask (run_drive);
     pros::Task gyroTask (run_gyro);
     
-    bool nextCommand = true;
     int driveMode = 0;
     double pauseTime = 0;
     // Set pointer to chosen auton routine
@@ -1182,11 +1221,15 @@ void run_auton() {
     if (autonSelect == 1) autonCommand = &blueAuton[0];
     
     // First entry is always starting direction,
-    setGyro(*autonCommand);
+    setGyro((*autonCommand) * 10);
     //drive.setDirection(*autonCommand);
     direction = *autonCommand;
     
     double lidarDist = 0;
+    nextCommand = true;
+    std::cout << " Auton Begun - ";
+    
+    double pauseTimeOut = 0;
     
     while (true) {
         
@@ -1201,13 +1244,15 @@ void run_auton() {
         // INTAKE (Time / Until ball enters)
         double ds,dd,dt;
         if (nextCommand) {
+            std::cout << "Next Command: " << pros::millis() << std::endl;
+            nextCommand = false;
             switch ((int)processEntry()) {
-                case END:
-                    // Do nothing
-                    break;
                 case PAUSE:
+                    pauseTimeOut = -1;
                     pauseTime = processEntry();
-                    if (pauseTime > 0) pauseTime = pauseTime * 1000 + pros::millis();
+                    std::cout << "Pause" << std::endl;
+                    if (pauseTime > 0) pauseTime = (pauseTime * 1000) + pros::millis();
+                    if (pauseTime < 0) pauseTimeOut = (processEntry() * 1000) + pros::millis();
                     break;
                 case DRIVE:
                     ds = processEntry();
@@ -1217,66 +1262,82 @@ void run_auton() {
                         if (dt == DISTANCE) {
                             driveMode = dt;
                             driveDist(ds,dd,processEntry(),processEntry());
+                            std::cout << "Drive Distance" << std::endl;
                         }
                         else if (dt == LIDAR) {
                             driveMode = dt;
                             lidarDist = processEntry();         // target lidar value
                             driveCustom(ds,dd,processEntry());  // custom drive with timeout
+                            std::cout << "Drive Lidar" << std::endl;
                         }
                         else {
                             driveMode = dt;
                             driveCustom(ds,dd,processEntry());
+                            std::cout << "Drive Custom" << std::endl;
                         }
                     }
                     else {
-                        driveMode = 0;
+                        driveMode = dt;
                         driveTime(ds,dd,dt);
+                        std::cout << "Drive Time" << std::endl;
                     }
                     break;
                 case TURN:
-                    turnTo(processEntry(),processEntry());
+                    turnTo(processEntry(), processEntry());
+                    std::cout << "Turn" << std::endl;
                     break;
                 case TURN_REL:
-                    turnRelative(processEntry(),processEntry());
+                    turnRelative(processEntry(), processEntry());
+                    std::cout << "Turn Relative" << std::endl;
                     break;
                 case TURN_ENC:
                     turnRelativeEncoder(processEntry(),processEntry());
+                    std::cout << "Turn Relative w/ Encoders" << std::endl;
                     break;
                 case SET_GYRO:
-                    setGyro(processEntry());
+                    setGyro(processEntry() * 10);
+                    std::cout << "Set Gyro" << std::endl;
                     break;
                 case FIRE_PRESET:
                     autoFireState = 3;
                     autoFireTimeout = processEntry();
+                    std::cout << "Fire Preset" << std::endl;
                     nextCommand = true;
                     break;
                 case FIRE_AIM:
                     autoFireTimeout = processEntry();
                     autoFireState = 1;
                     targetFlag = processEntry();
+                    std::cout << "Fire Aim" << std::endl;
                     nextCommand = true;
                     break;
                 case INTAKE_ON:
                     runTillBall = 2;
+                    std::cout << "Intake On" << std::endl;
                     nextCommand = true;
                     break;
                 case INTAKE_OFF:
                     runTillBall = 0;
+                    std::cout << "Intake Off" << std::endl;
                     nextCommand = true;
                     break;
                 case ARMSEEK:
                     armSeek = processEntry();
+                    std::cout << "Arm Seek" << std::endl;
                     nextCommand = true;
                     break;
                 case WRISTSEEK:
                     wristSeek = processEntry();
+                    std::cout << "Wrist Seek" << std::endl;
                     nextCommand = true;
                     break;
                 case FLIPPERSEEK:
                     flipperSeek = processEntry();
+                    std::cout << "Flipper Seek" << std::endl;
                     nextCommand = true;
                     break;
                 case FLIP:
+                    std::cout << "Flip" << std::endl;
                     if (flipperPos > (FLIP_POS1 + FLIP_POS2)/2) {
                         flipperSeek = FLIP_POS1;
                     }
@@ -1288,18 +1349,34 @@ void run_auton() {
                 case STACK_LOW:
                     stackTarget = LOW;
                     stackStep = 1;
+                    std::cout << "Low Stack" << std::endl;
+                    nextCommand = true;
                     break;
                 case STACK_HIGH:
                     stackTarget = HIGH;
                     stackStep = 1;
+                    std::cout << "High Stack" << std::endl;
+                    nextCommand = true;
                     break;
                 case STACK_LOW_FROM:
                     stackTarget = LOW;
                     stackStep = processEntry();
+                    std::cout << "Stack Low From..." << std::endl;
+                    nextCommand = true;
                     break;
                 case STACK_HIGH_FROM:
                     stackTarget = HIGH;
+                    std::cout << "Stack high from..." << std::endl;
+                    nextCommand = true;
                     stackStep = processEntry();
+                    break;
+                case END:
+                    std::cout << "Auton Finished: " << pros::millis() << std::endl;
+                    break;
+                case STOP_FLYWHEEL:
+                    autoFireState = -1;
+                    std::cout << "Stop Flywheel" << std::endl;
+                    nextCommand = true;
                     break;
                 default:
                     break;
@@ -1319,30 +1396,42 @@ void run_auton() {
             if (ds < 0 && getDistance() >= lidarDist) terminateDrive = true;
         }
         
-        if (stackTarget != 0 && stackStep == -1) {
-            stackTarget = 0;
-            nextCommand = true;
+        if (pauseTimeOut > 0 && pauseTime < 0) {
+            if (pros::millis() > pauseTimeOut) {
+                pauseTime = 0;
+                nextCommand = true;
+                pauseTimeOut = 0;
+                std::cout << "Pause Finished Timeout- " << pros::millis() << std::endl;
+            }
         }
         
         if (pauseTime > 0) {
             if (pros::millis() > pauseTime) {
                 pauseTime = 0;
                 nextCommand = true;
+                std::cout << "Pause Finished - " << pros::millis() << std::endl;
             }
         }
         else {
             if (pauseTime == FIRED && autoFireState == -1) {
                 nextCommand = true;
+                pauseTime = 0;
+                std::cout << "Pause Finished - " << pros::millis() << std::endl;
             }
             if (pauseTime == GOTBALL && getInnerSensor()) {
                 nextCommand = true;
+                pauseTime = 0;
+                std::cout << "Pause Finished - " << pros::millis() << std::endl;
             }
             if (pauseTime == GOTBALLS && getInnerSensor() && getOuterSensor()) {
                 nextCommand = true;
+                pauseTime = 0;
+                std::cout << "Pause Finished - " << pros::millis() << std::endl;
             }
         }
         
         if (terminateDrive) {
+            std::cout << "Stop Drive" << std::endl;
             driveMode = 0;
             driveStop();
             nextCommand = true;
@@ -1379,12 +1468,20 @@ void opcontrol() {
     bool justToggledAuto = false;
     
     while (true) {
-        pros::lcd::print(1, "AutoMode: %d", autonSelect);
+        
+        std::cout << "Sensor: " << sensor_gyro.get_value() << " Gyro: " << gyroDirection << " Direction: " << direction << std::endl;
+        
+        if (autonSelect == 0)
+            pros::lcd::print(0, "RED RED RED RED RED RED RED RED RED RED RED RED RED RED RED RED");
+        else if (autonSelect == 1)
+            pros::lcd::print(0, "BLUE BLUE BLUE BLUE BLUE BLUE BLUE BLUE BLUE BLUE BLUE BLUE BLUE");
+        
+        pros::lcd::print(2, "Direction: %f", direction);
         
         if ( controller.get_digital(BTN_ABORT) && controller.get_digital(BTN_CHOOSE_AUTON) ) {
             if (!justToggledAuto) {
                 autonSelect++;
-                if (autonSelect > NUMBER_AUTONS) {
+                if (autonSelect > NUMBER_AUTONS - 1) {
                     autonSelect = 0;
                 }
             }
