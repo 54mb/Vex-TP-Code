@@ -64,10 +64,10 @@ extern "C" {
 #endif
 struct    gyros {                     //create a structure to be used by the gyro code
     short    port;          //gyro port
-    float    truedir;                          //corrected direction
-    float    last;                         //last direction pointing
-    float    ascale;                           //anti-clockwise scale adjustment
-    float    cscale;                    //clockwise scale adjustment
+    double    truedir;                          //corrected direction
+    double    last;                         //last direction pointing
+    double    ascale;                           //anti-clockwise scale adjustment
+    double    cscale;                    //clockwise scale adjustment
 };
     
 void autonomous(void);
