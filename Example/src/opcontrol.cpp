@@ -25,7 +25,7 @@ Motor armMotor(1, E_MOTOR_GEARSET_18, 0, E_MOTOR_ENCODER_DEGREES);
 
 void run_arm(void* param) {                             // This function will run as a task
                                                         // It will control the movement (manual and automatic) of the arm
-    
+	
     while (true) {                                      // We want this to run forever
         
         double armPower = 0;                            // Start with 0 power
@@ -75,7 +75,6 @@ void run_arm(void* param) {                             // This function will ru
         delay(20);                                      // This is to give other tasks a chance to run
         
     }
-    
 }
 
 /**
