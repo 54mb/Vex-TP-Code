@@ -62,6 +62,9 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+ 
+void run_arm(void*);    // Our arm task
+  
 void autonomous(void);
 void initialize(void);
 void disabled(void);
