@@ -6,12 +6,12 @@
 //
 // To Do:
 // Test everything
-// Calibrate arm/wrist/flipper/flywheel/drive variables & #defines
+// Calibrate new arm/wrist/flipper/flywheel/drive variables & #defines
 // Calculate flywheel speed table
-// Choose controller mapping & change #defines - 1st version done
-// Write vision sensor code (next comp)
-// Write IR code
-// Write LiDAR code (next comp)
+// Write vision sensor code
+// Write LiDAR code
+// Create new auton mode
+// Create skills routine
 //
 //
 
@@ -25,7 +25,7 @@ using namespace pros;
 #define TURBO E_MOTOR_GEARSET_06
 #define SPEED E_MOTOR_GEARSET_18
 #define TORQUE E_MOTOR_GEARSET_36
-#define RAW E_MOTOR_ENCODER_DEGREES
+#define DEGREES E_MOTOR_ENCODER_DEGREES
 
 #define FLYWHEEL 1
 #define ARM 2
@@ -101,31 +101,33 @@ Controller controller(E_CONTROLLER_MASTER);     // Controller object
 // Motors
 // Motor name(port, gearing, reversed?, encoder_units);
 // Drive Motors
-Motor drive_left_1(1, SPEED, 0, RAW);
-Motor drive_left_2(2, SPEED, 1, RAW);
-Motor drive_left_3(3, SPEED, 0, RAW);
-Motor drive_right_1(4, SPEED, 1, RAW);
-Motor drive_right_2(5, SPEED, 0, RAW);
-Motor drive_right_3(6, SPEED, 1, RAW);
+Motor drive_left_1(1, SPEED, 0, DEGREES);
+Motor drive_left_2(2, SPEED, 1, DEGREES);
+Motor drive_left_3(3, SPEED, 0, DEGREES);
+Motor drive_right_1(4, SPEED, 1, DEGREES);
+Motor drive_right_2(5, SPEED, 0, DEGREES);
+Motor drive_right_3(6, SPEED, 1, DEGREES);
 // Flywheel Motors
-Motor flywheel_1(17, TURBO, 1, RAW);
-Motor flywheel_2(16, TURBO ,0, RAW);
+Motor flywheel_1(19, TURBO, 1, DEGREES);
+Motor flywheel_2(10, TURBO ,0, DEGREES);
 // Intake
-Motor intake_in(18, SPEED, 1, RAW);
-Motor intake_out(19, SPEED, 1, RAW);
+Motor intake_in(8, SPEED, 1, DEGREES);
+Motor intake_out(9, SPEED, 1, DEGREES);
 // Arm Motors
-Motor arm_1(7, SPEED, 0, RAW);
-Motor arm_2(20, SPEED, 1, RAW);
+Motor arm_1(7, SPEED, 0, DEGREES);
+Motor arm_2(18, SPEED, 1, DEGREES);
 // Flipper
-Motor wrist(11, SPEED, 1, RAW);
-Motor flip(14, SPEED, 0, RAW);
+Motor wrist(17, SPEED, 1, DEGREES);
+Motor flip(20, SPEED, 0, DEGREES);
 // Gyro Sensor
 ADIGyro sensor_gyro(1, GYRO_PORT);
 // Inner Intake Button
-ADIDigitalIn bumper_in (2);
+ADIDigitalIn bumper_top (2);
+ADIDigitalIn bumper_bottom (3);
+Vision camera(16);
 
 ///////////////////////////////////////////////////////////////
-// Drive tuning variables (CALIBRATE)
+// Drive tuning variables
 // Drive
 double deadZone = 10;
 double ticksPerTile = 640;
@@ -172,6 +174,8 @@ double targetY = 0;
 double targetS = 0;
 double yPosition = 0;
 double xPosition = 0;
+bool trackWithGyro = true;
+double trackingDirection = 0;
 
 
 // Auton Routines
@@ -179,6 +183,7 @@ extern int autonSelect;
 extern double defaultAuton[];
 extern double redAuton[];
 extern double blueAuton[];
+extern double skills[];
 
 
 double gyroDirection = 0;
@@ -390,11 +395,15 @@ void run_gyro(void* params)
 //
 
 double getLeftEnc() {
-    return ( drive_left_1.get_position() + drive_left_2.get_position() + drive_left_3.get_position() ) / 3;
+    return ( drive_left_1.get_position()
+            + drive_left_2.get_position()
+            + drive_left_3.get_position() ) / 3;
 }
 
 double getRightEnc() {
-    return ( drive_right_1.get_position() + drive_right_2.get_position() + drive_right_3.get_position() ) / 3;
+    return ( drive_right_1.get_position()
+            + drive_right_2.get_position()
+            + drive_right_3.get_position() ) / 3;
 }
 
 
@@ -457,7 +466,7 @@ void turnTo(double a, double t = -1) {
 void turnRelative(double a, double t = -1) {
     // angle, timeout
     recordedTime = pros::millis();
-    targetDirection = direction + a;
+    targetDirection = (gyroDirection / 10) + a;
     autoTimeOut = t*1000;
     autoMode = DRIVEMODE_TURN;
     turnMode = TURNMODE_GYRO;
@@ -485,7 +494,7 @@ void setPosition(double x, double y, double d) {
     // lastRightEnc = getRightEnc();
     yPosition = y;
     // lastLeftEnc = getLeftEnc();
-    direction = d;
+    trackingDirection = d;
 }
 
 void trackPosition() {
@@ -500,9 +509,14 @@ void trackPosition() {
     double distChange = (leftDiff + rightDiff)/2;   // Find lin. dist change
     distChange *= trackingTicksPerTile;
     
-    direction += angleChange;   // Find cumulative direction
-    xPosition += distChange * cos(direction * M_PI / 180);  // find cumulative xPos
-    yPosition += distChange * sin(direction * M_PI / 180);  // find cumulative yPoS
+    trackingDirection += angleChange;   // Find cumulative direction
+    
+    if (trackWithGyro) {        // If we are using gyro, then ignore encoder direction stuff
+        trackingDirection = gyroDirection / 10;
+    }
+    
+    xPosition += distChange * cos(trackingDirection * M_PI / 180);  // find cumulative xPos
+    yPosition += distChange * sin(trackingDirection * M_PI / 180);  // find cumulative yPoS
     
     lastLeftEnc = leftEnc;  // remember last values for next comparison
     lastRightEnc = rightEnc;
@@ -550,7 +564,7 @@ void run_drive(void* params) {
         //trackPosition();        // keep track of where we are on the field        // CHANGE
         
         if (usingGyro) {
-            direction = gyroDirection/10;  // gyroDirection is updated by gyro code, direction is used by drive code
+            direction = gyroDirection / 10;  // gyroDirection is updated by gyro code, direction is used by drive code
         }
         else {
             // maybe using compass/encoders?
@@ -718,8 +732,14 @@ void run_drive(void* params) {
         if (autoMode == DRIVEMODE_USER) {
             
             // Tank controls
-            leftSpeed = controller.get_analog(ANALOG_LEFT_Y);
-            rightSpeed = controller.get_analog(ANALOG_RIGHT_Y);
+            if (controlMode == FLYWHEEL) {
+                leftSpeed = controller.get_analog(ANALOG_LEFT_Y);
+                rightSpeed = controller.get_analog(ANALOG_RIGHT_Y);
+            }
+            else {
+                rightSpeed = -controller.get_analog(ANALOG_LEFT_Y);
+                leftSpeed = -controller.get_analog(ANALOG_RIGHT_Y);
+            }
             
             if (abs(leftSpeed) < deadZone) leftSpeed = 0;
             if (abs(rightSpeed) < deadZone) rightSpeed = 0;
@@ -754,6 +774,7 @@ void run_drive(void* params) {
 }
 
 
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Flywheel
 // Read flywheel motors to get its speed
@@ -763,10 +784,10 @@ double getFlywheelSpeed() {
 }
 // Read serial input for IR sensors and Lidar distance - NEEDS IMPLEMENTATION
 bool getInnerSensor() {
-    return bumper_in.get_value();
+    return bumper_top.get_value();
 }
 bool getOuterSensor() {
-    return true;
+    return bumper_bottom.get_value();
 }
 double getDistance() {
     return 0;
@@ -1219,6 +1240,7 @@ void run_auton() {
     // Set pointer to chosen auton routine
     if (autonSelect == 0) autonCommand = &redAuton[0];
     if (autonSelect == 1) autonCommand = &blueAuton[0];
+    if (autonSelect == 2) autonCommand = &skills[0];
     
     // First entry is always starting direction,
     setGyro((*autonCommand) * 10);
@@ -1230,6 +1252,8 @@ void run_auton() {
     std::cout << " Auton Begun - ";
     
     double pauseTimeOut = 0;
+    
+    double startTime = millis();
     
     while (true) {
         
@@ -1396,12 +1420,19 @@ void run_auton() {
             if (ds < 0 && getDistance() >= lidarDist) terminateDrive = true;
         }
         
-        if (pauseTimeOut > 0 && pauseTime < 0) {
+        if (pauseTime == UNTIL) {
+            if (millis() - startTime > pauseTimeOut * 1000) {
+                pauseTime = 0;
+                nextCommand = true;
+                pauseTimeOut = 0;
+                std::cout << "Pause Finished Wait Till - " << pros::millis() << std::endl;
+            }
+        } else if (pauseTimeOut > 0 && pauseTime < 0) {
             if (pros::millis() > pauseTimeOut) {
                 pauseTime = 0;
                 nextCommand = true;
                 pauseTimeOut = 0;
-                std::cout << "Pause Finished Timeout- " << pros::millis() << std::endl;
+                std::cout << "Pause Finished Timeout - " << pros::millis() << std::endl;
             }
         }
         
@@ -1469,12 +1500,16 @@ void opcontrol() {
     
     while (true) {
         
+        camera.set_led(COLOR_WHITE);
+        
         std::cout << "Sensor: " << sensor_gyro.get_value() << " Gyro: " << gyroDirection << " Direction: " << direction << std::endl;
         
         if (autonSelect == 0)
             pros::lcd::print(0, "RED RED RED RED RED RED RED RED RED RED RED RED RED RED RED RED");
         else if (autonSelect == 1)
             pros::lcd::print(0, "BLUE BLUE BLUE BLUE BLUE BLUE BLUE BLUE BLUE BLUE BLUE BLUE BLUE");
+        else if (autonSelect == 2)
+            pros::lcd::print(0, "SKILLS SKILLS SKILLS SKILLS SKILLS SKILLS SKILLS SKILLS SKILLS");
         
         pros::lcd::print(2, "Direction: %f", direction);
         
