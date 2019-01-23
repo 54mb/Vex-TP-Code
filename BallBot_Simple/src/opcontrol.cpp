@@ -4,9 +4,15 @@
 // Created by Sam Burton
 // Contributors:
 //
+// Abilities So Far:
+// High & Low Stack
+// Flip low stacked cap
+// De-score high stacked cap
+// Parking high & low
+// Shoot flags high & low - room for improvement
+//
 // To Do:
 // Test everything
-// Calibrate new arm/wrist/flipper/flywheel/drive variables & #defines
 // Calculate flywheel speed table
 // Write vision sensor code
 // Write LiDAR code
@@ -64,18 +70,20 @@ using namespace pros;
 #define BTN_ARM_HIGH DIGITAL_L1
 #define BTN_ARM_LOW DIGITAL_L2
 
-
+#define HIGH_STACK_START 1
+#define KNOCK_HIGH_START 500
+#define LOW_STACK_START 1000
 
 // #defines for arm positions           // CALCULATE
 #define FLIP_POS1 1                     // 1:1 Ratio, 0°
 #define FLIP_POS2 180                   // 1:1 Ratio, 180°
 #define WRIST_BACK_POS (200*3)          // 1:3 Ratio, 200°
-#define WRIST_BACKWARD_DROP_POS (-45*3) // 1:3 Ratio, -65°
-#define WRIST_FORWARD_POS (105*3)       // 1:3 Ratio, 100°
-#define WRIST_FORWARD_DROP_POS (35*3)   // 1:3 Ratio, 65°
+#define WRIST_BACKWARD_DROP_POS (-70*3) // 1:3 Ratio, -70°
+#define WRIST_FORWARD_POS (80*3)        // 1:3 Ratio, 80°
+#define WRIST_FORWARD_DROP_POS (70*3)   // 1:3 Ratio, 65°
 #define WRIST_VERTICAL_POS 1            // 1:3 Ratio, 0°
-#define ARM_POS_HIGH (135*5)            // 1:5 Ratio, 135°
-#define ARM_POS_LOW (85*5)              // 1:5 Ratio, 90°
+#define ARM_POS_HIGH (120*5)            // 1:5 Ratio, 120°
+#define ARM_POS_LOW (88*5)              // 1:5 Ratio, 90°
 #define ARM_POS_DOWN 1                  // 1:5 Ratio, 0°
 
 // #defines for tuning
@@ -83,7 +91,7 @@ using namespace pros;
 #define FLYWHEEL_AIM_RANGE 5            // fire ball when within x degrees of flag
 
 // Arm - higher value is more gentle seek
-#define armSeekRate 1
+#define armSeekRate 0.25
 #define wristSeekRate 0.25
 #define wristSeekSlow 8
 #define flipperSeekRate 1
@@ -1036,6 +1044,7 @@ void run_arm(void* params) {
     bool justArmToggled = false;
     bool justWristToggled = false;
     bool slowSeek = false;
+    double timeLastStep = 0;
     
     while (true) {
         
@@ -1047,16 +1056,106 @@ void run_arm(void* params) {
         wristPos = -wrist.get_position();
         armPos = (arm_1.get_position() + arm_2.get_position()) / 2;
         
-        // std::cout << "F: " << flipperPos << " W: " << wristPos << " A: " << armPos << std::endl;
-        
         // If we want to stack something, follow the steps
         switch (stackStep) {
-            case 1:
-                
+            // High Stacking
+            case HIGH_STACK_START:
+                if (!controller.get_digital(BTN_ARM_HIGH)) {
+                    stackStep++;
+                }
                 break;
-            case 2:
-                
+            case HIGH_STACK_START + 1:
+                armSeek = ARM_POS_HIGH;
+                wristSeek = WRIST_VERTICAL_POS;
+                if (armPos > ARM_POS_HIGH - 50) {
+                    stackStep++;
+                }
                 break;
+            case HIGH_STACK_START + 2:
+                wristSeek = WRIST_BACKWARD_DROP_POS;
+                if (wristPos < WRIST_BACKWARD_DROP_POS + 15 + ( armPos * 3 / 5 )) {
+                    stackStep++;
+                    timeLastStep = millis();
+                }
+                break;
+            case HIGH_STACK_START + 3:
+                if (timeLastStep + 500 < millis()) {
+                    stackStep++;
+                }
+                break;
+            case HIGH_STACK_START + 4:
+                armSeek = 1;
+                if (armPos < ARM_POS_HIGH / 2) {
+                    stackStep++;
+                }
+                break;
+            case HIGH_STACK_START + 5:
+                armSeek = -1;
+                wristSeek = WRIST_VERTICAL_POS;
+                stackStep = -1;
+                break;
+                
+                // High Knock Off
+            case KNOCK_HIGH_START:
+                armSeek = ARM_POS_HIGH;
+                wristSeek = WRIST_BACKWARD_DROP_POS - 50;
+                if (armPos > ARM_POS_HIGH - 50) {
+                    stackStep++;
+                }
+                break;
+            case KNOCK_HIGH_START + 1:
+                wristSeek = WRIST_VERTICAL_POS;
+                if (wristPos > WRIST_VERTICAL_POS - 20) {
+                    stackStep = HIGH_STACK_START + 3;
+                    timeLastStep = millis();
+                }
+                break;
+                
+            // Low Stacking
+            case LOW_STACK_START:
+                if (!controller.get_digital(BTN_ARM_LOW)) {
+                    stackStep++;
+                }
+                break;
+            case LOW_STACK_START + 1:
+                armSeek = ARM_POS_LOW;
+                wristSeek = WRIST_VERTICAL_POS;
+                if (armPos > ARM_POS_LOW - 50) {
+                    stackStep++;
+                }
+                break;
+            case LOW_STACK_START + 2:
+                if (controller.get_digital(BTN_ARM_LOW)) {
+                    stackStep++;
+                }
+                break;
+            case LOW_STACK_START + 3:
+                slowSeek = true;
+                wristSeek = WRIST_FORWARD_DROP_POS;
+                if (wristPos > WRIST_FORWARD_DROP_POS - 15 + ( armPos * 3 / 5 )) {
+                    stackStep++;
+                }
+                break;
+            case LOW_STACK_START + 4:
+                if (controller.get_digital(BTN_WRIST)) {
+                    stackStep = LOW_STACK_START + 1;
+                }
+                if (controller.get_digital(BTN_ARM_LOW)) {
+                    stackStep++;
+                }
+                break;
+            case LOW_STACK_START + 5:
+                armSeek = 1;
+                if (armPos < ARM_POS_HIGH / 2) {
+                    stackStep++;
+                }
+                break;
+            case LOW_STACK_START + 6:
+                armSeek = -1;
+                wristSeek = WRIST_VERTICAL_POS;
+                stackStep = -1;
+                break;
+                
             default:
                 stackStep = -1;
                 break;
@@ -1138,6 +1237,7 @@ void run_arm(void* params) {
                 if (!justWristToggled) {
                     if (wristSeek != WRIST_VERTICAL_POS) {
                         wristSeek = WRIST_VERTICAL_POS;
+                        slowSeek = false;
                     }
                     else {
                         slowSeek = true;
@@ -1159,24 +1259,34 @@ void run_arm(void* params) {
                 justWristToggled = false;
             }
             if (controller.get_digital(BTN_ARM_HIGH)) {
-                slowSeek = false;
+                if (stackStep == -1 || stackStep > LOW_STACK_START) {
+                    stackStep = HIGH_STACK_START;
+                }
+                else {
+                    if (stackStep > HIGH_STACK_START)
+                        stackStep = KNOCK_HIGH_START;
+                }
+                /*slowSeek = false;
                 if (!justArmToggled) {
                     if (armSeek == ARM_POS_HIGH) armSeek = ARM_POS_DOWN;
                     else armSeek = ARM_POS_HIGH;
                 }
-                justArmToggled = true;
+                justArmToggled = true;*/
             }
-            else if (controller.get_digital(BTN_ARM_LOW)) {
-                slowSeek = false;
+            if (controller.get_digital(BTN_ARM_LOW)) {
+                if (stackStep == -1 || stackStep < LOW_STACK_START) {
+                    stackStep = LOW_STACK_START;
+                }
+                /*slowSeek = false;
                 if (!justArmToggled) {
                     if (armSeek == ARM_POS_LOW) armSeek = ARM_POS_DOWN;
                     else armSeek = ARM_POS_LOW;
                 }
-                justArmToggled = true;
+                justArmToggled = true;*/
             }
-            else {
+            /*else {
                 justArmToggled = false;
-            }
+            }*/
             
         }
         if (controller.get_digital(BTN_ABORT)) {                // Stop all auton functions!
@@ -1192,6 +1302,7 @@ void run_arm(void* params) {
             armSpeed = (armSeek - armPos) / armSeekRate;
             if (armSpeed > 100) armSpeed = 100;
             if (armSpeed < -100) armSpeed = -100;
+            if (armSpeed < 0) armSpeed /= 2;        // slower on the way down
         }
         if (wristSeek != -1) {
             
@@ -1371,28 +1482,31 @@ void run_auton() {
                     nextCommand = true;
                     break;
                 case STACK_LOW:
-                    stackTarget = LOW;
-                    stackStep = 1;
+                    stackStep = LOW_STACK_START;
                     std::cout << "Low Stack" << std::endl;
                     nextCommand = true;
                     break;
                 case STACK_HIGH:
-                    stackTarget = HIGH;
+                    stackStep = HIGH_STACK_START;
                     stackStep = 1;
                     std::cout << "High Stack" << std::endl;
                     nextCommand = true;
                     break;
                 case STACK_LOW_FROM:
-                    stackTarget = LOW;
-                    stackStep = processEntry();
+                    stackStep = processEntry() + LOW_STACK_START;
                     std::cout << "Stack Low From..." << std::endl;
+                    nextCommand = true;
+                    break;
+                case FINISH_LOW_STACK:
+                    stackStep = LOW_STACK_START + 5;
+                    std::cout << "Finish Low Stack..." << std::endl;
                     nextCommand = true;
                     break;
                 case STACK_HIGH_FROM:
                     stackTarget = HIGH;
                     std::cout << "Stack high from..." << std::endl;
                     nextCommand = true;
-                    stackStep = processEntry();
+                    stackStep = processEntry() + HIGH_STACK_START;
                     break;
                 case END:
                     std::cout << "Auton Finished: " << pros::millis() << std::endl;
@@ -1502,7 +1616,8 @@ void opcontrol() {
         
         camera.set_led(COLOR_WHITE);
         
-        std::cout << "Sensor: " << sensor_gyro.get_value() << " Gyro: " << gyroDirection << " Direction: " << direction << std::endl;
+        std::cout << "Sensor: " << sensor_gyro.get_value() << " Gyro: " << gyroDirection << " Direction: " << direction;
+        std::cout << " Arm Pos: " << armPos << " Wrist Pos: " << wristPos << " Flip Pos: " << flipperPos << " Stack Step " << stackStep << std::endl;
         
         if (autonSelect == 0)
             pros::lcd::print(0, "RED RED RED RED RED RED RED RED RED RED RED RED RED RED RED RED");
@@ -1512,6 +1627,8 @@ void opcontrol() {
             pros::lcd::print(0, "SKILLS SKILLS SKILLS SKILLS SKILLS SKILLS SKILLS SKILLS SKILLS");
         
         pros::lcd::print(2, "Direction: %f", direction);
+        pros::lcd::print(3, "Arm: %.0f Wrist: %.0f Flipper: %.0f", armPos, wristPos, flipperPos);
+        pros::lcd::print(4, "Stack Step: %f", stackStep);
         
         if ( controller.get_digital(BTN_ABORT) && controller.get_digital(BTN_CHOOSE_AUTON) ) {
             if (!justToggledAuto) {

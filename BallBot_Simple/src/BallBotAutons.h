@@ -37,6 +37,7 @@ int autonSelect = 0;
 #define PAUSE -17               // Do nothing for some time
 #define SET_GYRO -18            // Set gyro to some angle
 #define STOP_FLYWHEEL -19       // Stop Flywheel running
+#define FINISH_LOW_STACK -20    // Finish low stack
 
 #define DISTANCE -1             // Drive condition for distance based on encoders
 #define LIDAR -2                // Drive condition for distance based on lidar
