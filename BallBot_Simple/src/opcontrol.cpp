@@ -9,6 +9,7 @@
 // Flip low stacked cap
 // De-score high stacked cap
 // Parking high & low
+// Auto intake 2 balls
 // Shoot flags high & low - room for improvement
 //
 // To Do:
@@ -18,6 +19,7 @@
 // Write LiDAR code
 // Create new auton mode
 // Create skills routine
+// Code to handle more than two balls in intake
 //
 //
 
