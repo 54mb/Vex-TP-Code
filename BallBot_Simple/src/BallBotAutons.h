@@ -41,6 +41,14 @@ int autonSelect = 0;
 
 #define DISTANCE -1             // Drive condition for distance based on encoders
 #define LIDAR -2                // Drive condition for distance based on lidar
+#define WHITE_E -3
+#define WHITE_B -4
+#define WHITE_L -5
+#define WHITE_R -6
+#define BLACK_E -7
+#define BLACK_B -8
+#define BLACK_L -9
+#define BLACK_R -10
 
 #define FIRED -1                // Pause condition wait till fired
 #define GOTBALL -2              // Pause condition wait till one ball

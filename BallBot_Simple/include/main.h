@@ -41,6 +41,7 @@
  */
 //#include "okapi/api.hpp"
 //#include "pros/api_legacy.h"
+#include <vector>
 
 /**
  * If you find doing pros::Motor() to be tedious and you'd prefer just to do
@@ -104,7 +105,7 @@ double getFlywheelSpeed();
 bool getInnerSensor();
 bool getOuterSensor();
 double getDistance();
-double getRelativeAngle();
+double getRelativeAngle(int, int);
 void run_flywheel(void*);
 void run_arm(void*);
 void run_auton();

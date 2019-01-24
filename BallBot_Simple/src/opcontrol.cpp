@@ -10,10 +10,15 @@
 // De-score high stacked cap
 // Parking high & low
 // Auto intake 2 balls
-// Shoot flags high & low - room for improvement
+// Shoot flags high & low - room for improvement - flywheel needs tuning
+// Auto aim works, need cases for low flag toggled but not top
+//      Maybe check size of object & discard?
+//
 //
 // To Do:
 // Test everything
+// Make flipper more consistant height?
+// Tune flywheel
 // Calculate flywheel speed table
 // Write vision sensor code
 // Write LiDAR code
@@ -103,6 +108,16 @@ using namespace pros;
 #define ASCALE 0.9486    //Anti-clockwise scale adjustments to counteract rotation errors
 #define GYRO_PORT 1
 
+// Vision Sensor Stuff
+#define DEFAULT 0
+#define BLUE_FLAG 1
+#define RED_FLAG 2
+#define GREEN_FLAG 3
+#define CENTER 0
+#define LEFT 1
+#define RIGHT 2
+#define VISION_SEEK_RATE 3
+
 #include "BallBotAutons.h"
 
 Controller controller(E_CONTROLLER_MASTER);     // Controller object
@@ -132,8 +147,11 @@ Motor flip(20, SPEED, 0, DEGREES);
 // Gyro Sensor
 ADIGyro sensor_gyro(1, GYRO_PORT);
 // Inner Intake Button
-ADIDigitalIn bumper_top (2);
-ADIDigitalIn bumper_bottom (3);
+ADIDigitalIn upper_IR (2);
+ADIDigitalIn lower_IR (3);
+ADIDigitalIn left_IR (4);
+ADIDigitalIn right_IR (5);
+
 Vision camera(16);
 
 ///////////////////////////////////////////////////////////////
@@ -285,6 +303,7 @@ void initAll() {        // called when robot activates & start of auton
     hasInitialised = true;
     // Every time init...
     // eg. tare arm position
+    camera.set_zero_point(pros::E_VISION_ZERO_CENTER);
     arm_1.tare_position();
     arm_2.tare_position();
     wrist.tare_position();
@@ -601,6 +620,7 @@ void run_drive(void* params) {
         // auto functions
         if (autoMode != DRIVEMODE_USER) {   // If auton is asking for drive to move
             
+            
             if (drivingToPos) {         // keep calculating new angle & distance to stay on-target
                 // Must write position tracking algorythm first
                 driveTo(targetS, targetX, targetY);
@@ -609,7 +629,8 @@ void run_drive(void* params) {
             forward = autoSpeed;        // autoSpeed is speed asked for, forward will be sent to drive motors
             
             if (autoMode == DRIVEMODE_TURN)  {  // if we are only turning, make translational speed 0
-                forward = 0;
+                // controller values will be 0 in auton, but we still want translation while aiming
+                forward = (controller.get_analog(ANALOG_LEFT_Y) + controller.get_analog(ANALOG_RIGHT_Y))/2;
                 autoSpeed = 0;
             }
             
@@ -712,7 +733,7 @@ void run_drive(void* params) {
             
             turn = angle;
             
-            if (autoSpeed == 0 || autoMode == DRIVEMODE_TURN) {
+            if (autoSpeed == 0 || (autoMode == DRIVEMODE_TURN && forward != 0)) {
                 if (abs(direction - targetDirection) < turnAccepted) {
                     turnGoodCount++;
                     if (turnGoodCount > 3)
@@ -794,16 +815,67 @@ double getFlywheelSpeed() {
 }
 // Read serial input for IR sensors and Lidar distance - NEEDS IMPLEMENTATION
 bool getInnerSensor() {
-    return bumper_top.get_value();
+    return upper_IR.get_value();
 }
 bool getOuterSensor() {
-    return bumper_bottom.get_value();
+    return lower_IR.get_value();
 }
 double getDistance() {
     return 0;
 }
+
+
 // Read vision sensor to get angle needed to turn
-double getRelativeAngle() {
+double getRelativeAngle(int location = CENTER, int target = DEFAULT) {
+    
+    int lookingFor = BLUE_FLAG;     // default to red-team
+    if (autonSelect == 1)
+        lookingFor = RED_FLAG;      // but change to blue if needed
+    
+    if (target != DEFAULT)
+        lookingFor = target;
+    
+    std::vector<vision_object_s_t> allThings;
+    
+    int noObjs = camera.get_object_count();                     // Find number of objects visable
+    for (int i = 0; i < noObjs; i++) {                          // Go through them all
+        vision_object_s_t thisThing = camera.get_by_size(i);    // And check if we care about
+        if (thisThing.signature == lookingFor) {                // The type of object it is
+            allThings.push_back(thisThing);                     // And stick it into a vector
+        }
+    }
+    
+    if (allThings.size() == 0) return 0;
+    
+    // Now find the thing furthest right or left, or the closest to the center
+    
+    double closestDist;
+    if (location == CENTER) {
+        closestDist = 10000;
+        for (int i = 0; i < allThings.size(); i++) {
+            if (abs(allThings[i].x_middle_coord) < closestDist) {
+                closestDist = allThings[i].x_middle_coord;
+            }
+        }
+    }
+    if (location == LEFT) {
+        closestDist = 10000;
+        for (int i = 0; i < allThings.size(); i++) {
+            if (allThings[i].x_middle_coord < closestDist) {
+                closestDist = allThings[i].x_middle_coord;
+            }
+        }
+    }
+    if (location == RIGHT) {
+        closestDist = -10000;
+        for (int i = 0; i > allThings.size(); i++) {
+            if (allThings[i].x_middle_coord < closestDist) {
+                closestDist = allThings[i].x_middle_coord;
+            }
+        }
+    }
+    
+    return -closestDist/VISION_SEEK_RATE;
     
 }
 
@@ -1021,6 +1093,10 @@ void run_flywheel(void* params) {
         if (targetSpeed == flyWheelDefaultSpeed) {
             flywheelSpeed = flyWheelDefaultSpeed;
         }
+        
+        ///////////////////////////////
+        // flywheelSpeed = 0;
+        ///////////////////////////////
         
         // Set motors on flywheel
         flywheel_1.move_voltage(flywheelSpeed * 12000 / 127);
@@ -1407,6 +1483,11 @@ void run_auton() {
                             driveCustom(ds,dd,processEntry());  // custom drive with timeout
                             std::cout << "Drive Lidar" << std::endl;
                         }
+                        else if (dt <= WHITE_E && dt >= BLACK_R) {
+                            driveMode = dt;
+                            driveCustom(ds,dd,processEntry());  // custom drive with timeout
+                            std::cout << "Drive White Line" << std::endl;
+                        }
                         else {
                             driveMode = dt;
                             driveCustom(ds,dd,processEntry());
@@ -1536,6 +1617,47 @@ void run_auton() {
             if (ds < 0 && getDistance() >= lidarDist) terminateDrive = true;
         }
         
+        if (driveMode <= WHITE_E && driveMode >= BLACK_R) {     // White line sensors
+            switch (driveMode) {
+                case WHITE_E:
+                    if (left_IR.get_value() || right_IR.get_value())
+                        terminateDrive = true;
+                    break;
+                case WHITE_B:
+                    if (left_IR.get_value() && right_IR.get_value())
+                        terminateDrive = true;
+                    break;
+                case WHITE_L:
+                    if (left_IR.get_value())
+                        terminateDrive = true;
+                    break;
+                case WHITE_R:
+                    if (right_IR.get_value())
+                        terminateDrive = true;
+                    break;
+                    
+                case BLACK_E:
+                    if (!left_IR.get_value() || !right_IR.get_value())
+                        terminateDrive = true;
+                    break;
+                case BLACK_B:
+                    if (!left_IR.get_value() && !right_IR.get_value())
+                        terminateDrive = true;
+                    break;
+                case BLACK_L:
+                    if (!left_IR.get_value())
+                        terminateDrive = true;
+                    break;
+                case BLACK_R:
+                    if (!right_IR.get_value())
+                        terminateDrive = true;
+                    break;
+                    
+                default:
+                    break;
+            }
+        }
+        
         if (pauseTime == UNTIL) {
             if (millis() - startTime > pauseTimeOut * 1000) {
                 pauseTime = 0;
@@ -1618,8 +1740,26 @@ void opcontrol() {
         
         camera.set_led(COLOR_WHITE);
         
-        std::cout << "Sensor: " << sensor_gyro.get_value() << " Gyro: " << gyroDirection << " Direction: " << direction;
-        std::cout << " Arm Pos: " << armPos << " Wrist Pos: " << wristPos << " Flip Pos: " << flipperPos << " Stack Step " << stackStep << std::endl;
+        std::cout << "Sensor: " << sensor_gyro.get_value() << " Gyro: " << gyroDirection << " Direction: " << direction << std::endl;
+        //std::cout << " Arm Pos: " << armPos << " Wrist Pos: " << wristPos << " Flip Pos: " << flipperPos << " Stack Step " << stackStep << std::endl;
+        
+        int  count_B = 0;
+        int  count_R = 0;
+        int  count_G = 0;
+        int noObjs = camera.get_object_count();
+        std::cout << "N: " << noObjs << std::endl;
+        if (noObjs > 20) noObjs = 20;
+        for (int i = 0; i < noObjs; i++) {
+            vision_object_s_t thisThing = camera.get_by_size(i);
+            if (thisThing.signature == BLUE_FLAG)
+                count_B++;
+            if (thisThing.signature == RED_FLAG)
+                count_R++;
+            if (thisThing.signature == GREEN_FLAG)
+                count_G++;
+        }
+        if (count_B > 0 || count_R > 0 || count_G > 0)
+            std::cout << "B: " << count_B << " R: " << count_R << " G: " << count_G << std::endl;
         
         if (autonSelect == 0)
             pros::lcd::print(0, "RED RED RED RED RED RED RED RED RED RED RED RED RED RED RED RED");
