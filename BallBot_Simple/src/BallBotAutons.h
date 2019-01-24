@@ -38,6 +38,14 @@ int autonSelect = 0;
 #define SET_GYRO -18            // Set gyro to some angle
 #define STOP_FLYWHEEL -19       // Stop Flywheel running
 #define FINISH_LOW_STACK -20    // Finish low stack
+#define TURN_AIM -21            // Turn to aim at _____
+
+#define BLUE_FLAG 1             // Blue flag for aiming
+#define RED_FLAG 2              // Red flag for aiming
+#define GREEN_FLAG 3            // Green flag for aiming
+#define CENTER 0                // Aim at center-most obj.
+#define LEFT 1                  // Aim at left-most obj.
+#define RIGHT 2                 // Aim at right-most obj.
 
 #define DISTANCE -1             // Drive condition for distance based on encoders
 #define LIDAR -2                // Drive condition for distance based on lidar
@@ -54,29 +62,6 @@ int autonSelect = 0;
 #define GOTBALL -2              // Pause condition wait till one ball
 #define GOTBALLS -3             // Pause condition wait till two balls
 #define UNTIL -4                // Pause condition wait till time (not for time)
-
-/*
- Motor drive_left_1(1, SPEED, 0, RAW);
- Motor drive_left_2(2, SPEED, 1, RAW);
- Motor drive_left_3(3, SPEED, 0, RAW);
- Motor drive_right_1(4, SPEED, 1, RAW);
- Motor drive_right_2(5, SPEED, 0, RAW);
- Motor drive_right_3(6, SPEED, 1, RAW);
- // Flywheel Motors
- Motor flywheel_1(17, TURBO, 1, RAW);
- Motor flywheel_2(16, TURBO ,0, RAW);
- // Intake
- Motor intake_in(18, SPEED, 1, RAW);
- Motor intake_out(19, SPEED, 1, RAW);
- // Arm Motors
- Motor arm_1(7, SPEED, 0, RAW);
- Motor arm_2(20, SPEED, 1, RAW);
- // Flipper
- Motor wrist(11, SPEED, 1, RAW);
- Motor flip(14, SPEED, 0, RAW);
- // Gyro Sensor
- ADIGyro sensor_gyro(1, GYRO_PORT);
- */
 
 
 double defaultAuton[] = {

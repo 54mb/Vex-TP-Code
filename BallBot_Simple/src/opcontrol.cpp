@@ -93,9 +93,7 @@ using namespace pros;
 #define ARM_POS_LOW (88*5)              // 1:5 Ratio, 90°
 #define ARM_POS_DOWN 1                  // 1:5 Ratio, 0°
 
-// #defines for tuning
-// Flywheel
-#define FLYWHEEL_AIM_RANGE 5            // fire ball when within x degrees of flag
+// #defines For Tuning
 
 // Arm - higher value is more gentle seek
 #define armSeekRate 0.25
@@ -109,14 +107,13 @@ using namespace pros;
 #define GYRO_PORT 1
 
 // Vision Sensor Stuff
-#define DEFAULT 0
-#define BLUE_FLAG 1
-#define RED_FLAG 2
-#define GREEN_FLAG 3
-#define CENTER 0
-#define LEFT 1
-#define RIGHT 2
-#define VISION_SEEK_RATE 3
+#define DEFAULT 0                       // Choose colour of flag based on auton mode
+#define MAX_FLAG_WIDTH 500              // Widest object camera will recognise
+#define MAX_FLAG_HEIGHT 500             // Tallest object camera will recognise
+#define MIN_FLAG_Y -200                 // Lowest camera will recognise object
+#define AIM_ACCEPT 5                    // Stop auto-aiming within x
+#define FLYWHEEL_AIM_RANGE 5            // fire ball when within x degrees of flag
+#define VISION_SEEK_RATE 3              // How fast to turn to aim, bigger = slower
 
 #include "BallBotAutons.h"
 
@@ -261,8 +258,9 @@ int stackStep = -1;
 
 double flyWheelDefaultSpeed = 80;    // set speed for fixed-dist fireing
 double flyWheelSpeeds[2][3] = {                 // CALIBRATE & add more
+    // Dist, Low Flag Speed, High Flag Speed
     {-100, 0, 0},   // to catch errors
-    {0, 400, 500},
+    {0, 500, 400},
 };
 int flyWheelSpeedsDefinition = 4;   // number of entries
 double autoFireTimeout = -1;
@@ -825,6 +823,8 @@ double getDistance() {
 }
 
 
+
+
 // Read vision sensor to get angle needed to turn
 double getRelativeAngle(int location = CENTER, int target = DEFAULT) {
     
@@ -838,6 +838,10 @@ double getRelativeAngle(int location = CENTER, int target = DEFAULT) {
     std::vector<vision_object_s_t> allThings;
     
     int noObjs = camera.get_object_count();                     // Find number of objects visable
+    
+    if (noObjs > 27)      // Camera error, so don't aim
+        return 0;
+    
     for (int i = 0; i < noObjs; i++) {                          // Go through them all
         vision_object_s_t thisThing = camera.get_by_size(i);    // And check if we care about
         if (thisThing.signature == lookingFor) {                // The type of object it is
@@ -845,7 +849,25 @@ double getRelativeAngle(int location = CENTER, int target = DEFAULT) {
         }
     }
     
-    if (allThings.size() == 0) return 0;
+    
+    if (allThings.size() == 0) return 0;    // No correct objects found, so don't aim
+    
+    // Now check objects to delete any imposters - or don't aim if too close
+    
+    for (int i = 0; i < allThings.size(); i++) {
+        if (lookingFor == BLUE_FLAG || lookingFor == RED_FLAG) {
+            // Check if too big/close
+            if (allThings[i].width > MAX_FLAG_WIDTH || allThings[i].height > MAX_FLAG_HEIGHT) {
+                allThings.erase(allThings.begin() + i);
+            }
+            // Check if too low
+            if (allThings[i].y_middle_coord < MIN_FLAG_Y) {
+                allThings.erase(allThings.begin() + i);
+            }
+        }
+    }
+    
+    if (allThings.size() == 0) return 0;    // Check if we've deleted all the things
     
     // Now find the thing furthest right or left, or the closest to the center
     
@@ -879,6 +901,9 @@ double getRelativeAngle(int location = CENTER, int target = DEFAULT) {
     
 }
 
+
+
+
 void run_flywheel(void* params) {
     // Declare any local variables
     bool ballIsIn = false;
@@ -886,6 +911,7 @@ void run_flywheel(void* params) {
     bool justToggledAutoBall = false;
     bool coast = false;
     bool toggledCoast = false;
+    bool fireBall = false;
     
     while (true) {
         
@@ -964,7 +990,7 @@ void run_flywheel(void* params) {
             // Read vision sensor & ask drive to turn appropriately
             if (abs(relativeAngle) > 0) turnRelative(relativeAngle,autoFireTimeout);
             
-            bool fireBall = false;
+            
             // Check current speed of flywheel & if aimed
             if ( (abs(getFlywheelSpeed() - targetSpeed) < FLYWHEEL_SPEED_RANGE) && (abs(relativeAngle) < FLYWHEEL_AIM_RANGE) ) {
                 // Set flag for fireing ball
@@ -990,10 +1016,12 @@ void run_flywheel(void* params) {
                 fireBall = false;
                 if (targetFlag == 3) {  // wanted to shoot high then low
                     targetFlag = 1;
+                    fireBall = false;
                 }
                 else {
                     autoFireState = -1;
                     targetSpeed = flyWheelDefaultSpeed;
+                    fireBall = false;
                     driveStop();
                 }
             }
@@ -1008,19 +1036,32 @@ void run_flywheel(void* params) {
         // If manual intake buttons pressed, override intake speeds
         if (controlMode == FLYWHEEL) {
             if (controller.get_digital(BTN_FIRE_LOW)) { // auto fire low
-                autoFireState = 1;
+                if (autoFireState <= 0)
+                    autoFireState = 2;
+                else
+                    autoFireState = 1;
+                
                 autoFireTimeout = -1;
                 targetFlag = 1;
+                fireBall = false;
             }
             if (controller.get_digital(BTN_FIRE_HIGH)) { // auto fire high
-                autoFireState = 1;
+                if (autoFireState <= 0)
+                    autoFireState = 2;
+                else
+                    autoFireState = 1;
                 targetFlag = 2;
                 autoFireTimeout = -1;
+                fireBall = false;
             }
             if (controller.get_digital(BTN_FIRE_BOTH)) { // auto fire both
-                autoFireState = 1;
+                if (autoFireState <= 0)
+                    autoFireState = 2;
+                else
+                    autoFireState = 1;
                 targetFlag = 3;
                 autoFireTimeout = -1;
+                fireBall = false;
             }
             /*if (controller.get_digital(BTN_FIRE_PRESET)) { // auto fire preset
                 autoFireState = 3;
@@ -1060,8 +1101,9 @@ void run_flywheel(void* params) {
         }
         if (controller.get_digital(BTN_ABORT)) {     // cancel auto functions
             autoFireState = -1;
-            runTillBall = 0;
+            // runTillBall = 0;
             forceIntake = false;
+            fireBall = false;
         }
         
         if (runTillBall) {
@@ -1444,6 +1486,11 @@ void run_auton() {
     
     double startTime = millis();
     
+    int aimTarget = 0;
+    int aimLocation = 0;
+    bool aimPlease = false;
+    
+    
     while (true) {
         
         // Auton table decipherer - switch statement
@@ -1507,6 +1554,13 @@ void run_auton() {
                 case TURN_REL:
                     turnRelative(processEntry(), processEntry());
                     std::cout << "Turn Relative" << std::endl;
+                    break;
+                case TURN_AIM:
+                    aimTarget = processEntry();
+                    aimLocation = processEntry();
+                    pauseTime = (processEntry() * 1000) + pros::millis();
+                    aimPlease = true;
+                    std::cout << "Aim Turn" << std::endl;
                     break;
                 case TURN_ENC:
                     turnRelativeEncoder(processEntry(),processEntry());
@@ -1593,6 +1647,7 @@ void run_auton() {
                     break;
                 case END:
                     std::cout << "Auton Finished: " << pros::millis() << std::endl;
+                    std::cout << "Auton Took: " << (pros::millis() - startTime)/1000 << " Seconds" << std::endl;
                     break;
                 case STOP_FLYWHEEL:
                     autoFireState = -1;
@@ -1658,6 +1713,17 @@ void run_auton() {
             }
         }
         
+        if (aimPlease) {
+            double relAngle = getRelativeAngle(aimTarget, aimLocation);
+            if (abs(relAngle) < AIM_ACCEPT)  {
+                aimPlease = false;
+                nextCommand = true;
+                pauseTime = 0;
+                std::cout << "Aim Finished - " << pros::millis() << std::endl;
+            }
+            turnRelative(relAngle, -1);
+        }
+        
         if (pauseTime == UNTIL) {
             if (millis() - startTime > pauseTimeOut * 1000) {
                 pauseTime = 0;
@@ -1677,6 +1743,7 @@ void run_auton() {
         if (pauseTime > 0) {
             if (pros::millis() > pauseTime) {
                 pauseTime = 0;
+                aimPlease = false;
                 nextCommand = true;
                 std::cout << "Pause Finished - " << pros::millis() << std::endl;
             }
