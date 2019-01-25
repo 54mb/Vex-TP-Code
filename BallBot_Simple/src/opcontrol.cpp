@@ -1533,6 +1533,9 @@ void run_auton() {
                 case DRIVE:
                     ds = processEntry();
                     dd = processEntry();
+                    if (dd == CDIR) {
+                        dd = gyroDirection / 10;
+                    }
                     dt = processEntry();
                     if (dt < 0) {
                         if (dt == DISTANCE) {
