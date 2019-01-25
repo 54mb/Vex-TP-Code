@@ -21,14 +21,13 @@ int autonSelect = 0;
 #define TURN -2                 // Turn to some angle at some speed
 #define TURN_REL -3             // Turn for some angle at some speed
 #define TURN_ENC -4             // Turn for some angle using encoder ticks
-#define FIRE_PRESET -5          // Shoot flywheel at preset speed
+#define FIRE -5                 // Shoot flywheel at preset speed
 #define FIRE_AIM -6             // Aim and fire ball
-#define FIRE -6                 // Aim and fire ball
 #define INTAKE_ON -7            // Turn intake on
 #define INTAKE_OFF -8           // Turn intake off
 #define ARMSEEK -9              // Move arm to pos
 #define WRISTSEEK -10           // Move wrist to pos
-#define FLIPPERSEEK -11         // Move flipper to pos
+#define FLIPSEEK -11            // Move flipper to pos
 #define FLIP -12                // Auto flip 180°
 #define STACK_LOW -13           // Auto stack on low
 #define STACK_HIGH -14          // Auto stack on high
@@ -38,7 +37,8 @@ int autonSelect = 0;
 #define SET_GYRO -18            // Set gyro to some angle
 #define STOP_FLYWHEEL -19       // Stop Flywheel running
 #define FINISH_LOW_STACK -20    // Finish low stack
-#define TURN_AIM -21            // Turn to aim at _____
+#define TURN_AIM -21            // Turn to aim at _____ (target, location, time)
+#define STOP_FIRE -22           // Cancel Fire
 
 #define BLUE_FLAG 1             // Blue flag for aiming
 #define RED_FLAG 2              // Red flag for aiming
@@ -49,7 +49,8 @@ int autonSelect = 0;
 
 #define DISTANCE -1             // Drive condition for distance based on encoders
 #define LIDAR -2                // Drive condition for distance based on lidar
-#define WHITE_E -3
+
+#define WHITE_E -3              // Drive conditions for white lines
 #define WHITE_B -4
 #define WHITE_L -5
 #define WHITE_R -6
@@ -62,7 +63,22 @@ int autonSelect = 0;
 #define GOTBALL -2              // Pause condition wait till one ball
 #define GOTBALLS -3             // Pause condition wait till two balls
 #define UNTIL -4                // Pause condition wait till time (not for time)
+#define STACKED -5              // Pause condition wait till stacked
 
+// #defines for arm positions           // CALCULATE
+#define FLIP_POS1 1                     // 1:1 Ratio, 0°
+#define FLIP_POS2 180                   // 1:1 Ratio, 180°
+#define WRIST_BACK_POS (200*3)          // 1:3 Ratio, 200°
+#define WRIST_BACKWARD_DROP_POS (-70*3) // 1:3 Ratio, -70°
+#define WRIST_FORWARD_POS (80*3)        // 1:3 Ratio, 80°
+#define WRIST_FORWARD_DROP_POS (70*3)   // 1:3 Ratio, 65°
+#define WRIST_VERTICAL_POS 1            // 1:3 Ratio, 0°
+#define ARM_POS_HIGH (120*5)            // 1:5 Ratio, 120°
+#define ARM_POS_LOW (88*5)              // 1:5 Ratio, 90°
+#define ARM_POS_DOWN 1                  // 1:5 Ratio, 0°
+
+#define TOP 2                           // Top Flag
+#define MIDDLE 1                        // Middle Flag
 
 double defaultAuton[] = {
     0,
@@ -76,7 +92,48 @@ double blueAuton[] = {
 };
 
 double redAuton[] = {
-    0,
+    135,
+    
+    WRISTSEEK,-1000,
+    PAUSE,0.5,
+    FLIP,
+    WRISTSEEK,WRIST_FORWARD_POS,
+    PAUSE,0.5,
+    
+    DRIVE,-70,135,DISTANCE,0.75,2,
+    WRISTSEEK,WRIST_VERTICAL_POS,
+    PAUSE,0.5,
+    DRIVE,70,135,DISTANCE,1.4,3,
+    TURN,90,1,
+    DRIVE,70,90,0.125,
+    
+    STACK_HIGH,
+    PAUSE,STACKED,10,
+    
+    DRIVE,-70,90,DISTANCE,0.25,2,
+    TURN,135,1,
+    DRIVE,-70,135,DISTANCE,0.75,2,
+    TURN,270,2,
+    
+    INTAKE_ON,
+    DRIVE,127,270,DISTANCE,1.25,3,
+    PAUSE,0.25,
+    DRIVE,-127,270,DISTANCE,2,2,
+    
+    TURN,0,1,
+    TURN_AIM,BLUE_FLAG,LEFT,1,
+    FIRE_AIM,TOP,
+    PAUSE,FIRED,10,
+    STOP_FIRE,
+    
+    DRIVE,70,0,DISTANCE,1,2,
+    FIRE_AIM,MIDDLE,
+    PAUSE,FIRED,10,
+    STOP_FIRE,
+    
+    DRIVE,127,0,DISTANCE,1,2,
+    DRIVE,-127,0,DISTANCE,1,2,
+    
     END
 };
 

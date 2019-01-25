@@ -43,9 +43,6 @@ using namespace pros;
 #define FLYWHEEL 1
 #define ARM 2
 
-#define HIGH 1
-#define MIDDLE 2
-
 
 
 ///////////////////////////////////////////////////////////////////////////
@@ -81,18 +78,6 @@ using namespace pros;
 #define KNOCK_HIGH_START 500
 #define LOW_STACK_START 1000
 
-// #defines for arm positions           // CALCULATE
-#define FLIP_POS1 1                     // 1:1 Ratio, 0°
-#define FLIP_POS2 180                   // 1:1 Ratio, 180°
-#define WRIST_BACK_POS (200*3)          // 1:3 Ratio, 200°
-#define WRIST_BACKWARD_DROP_POS (-70*3) // 1:3 Ratio, -70°
-#define WRIST_FORWARD_POS (80*3)        // 1:3 Ratio, 80°
-#define WRIST_FORWARD_DROP_POS (70*3)   // 1:3 Ratio, 65°
-#define WRIST_VERTICAL_POS 1            // 1:3 Ratio, 0°
-#define ARM_POS_HIGH (120*5)            // 1:5 Ratio, 120°
-#define ARM_POS_LOW (88*5)              // 1:5 Ratio, 90°
-#define ARM_POS_DOWN 1                  // 1:5 Ratio, 0°
-
 // #defines For Tuning
 
 // Arm - higher value is more gentle seek
@@ -112,6 +97,7 @@ using namespace pros;
 #define MAX_FLAG_HEIGHT 500             // Tallest object camera will recognise
 #define MIN_FLAG_Y -200                 // Lowest camera will recognise object
 #define AIM_ACCEPT 5                    // Stop auto-aiming within x
+#define FLAG_OFFSET 10
 #define FLYWHEEL_AIM_RANGE 5            // fire ball when within x degrees of flag
 #define VISION_SEEK_RATE 3              // How fast to turn to aim, bigger = slower
 
@@ -256,6 +242,7 @@ int stackStep = -1;
 #define flywheelSlowSpeed 50
 #define flywheelFastSpeed 127
 
+double flywheelRunSpeed = 0;
 double flyWheelDefaultSpeed = 80;    // set speed for fixed-dist fireing
 double flyWheelSpeeds[2][3] = {                 // CALIBRATE & add more
     // Dist, Low Flag Speed, High Flag Speed
@@ -296,16 +283,16 @@ void initAll() {        // called when robot activates & start of auton
         // eg. calibrate gyro
         controller.print(0,0,"Calibrating");
         sensor_gyro = ADIGyro(1, GYRO_PORT);
+        arm_1.tare_position();
+        arm_2.tare_position();
+        wrist.tare_position();
+        flip.tare_position();
         pros::delay(3000);
     }
     hasInitialised = true;
     // Every time init...
     // eg. tare arm position
     camera.set_zero_point(pros::E_VISION_ZERO_CENTER);
-    arm_1.tare_position();
-    arm_2.tare_position();
-    wrist.tare_position();
-    flip.tare_position();
     controller.print(0,0,"                          ");
 }
 
@@ -549,7 +536,7 @@ void trackPosition() {
     lastRightEnc = rightEnc;
 }
 
- void turnToPoint(double x, double y, double t = -1) {
+void turnToPoint(double x, double y, double t = -1) {
     double dx = x - xPosition;
     double dy = y - yPosition;
     double dir = atan(dy/dx);
@@ -633,12 +620,12 @@ void run_drive(void* params) {
             }
             
             if (autoMode == DRIVEMODE_DIST) {   // If auto move should end with a distance
-                double slowDown = (targetDistance - currentDist) / (0.75 * ticksPerTile);
+                double slowDown = abs((targetDistance - currentDist) / (0.75 * ticksPerTile));
                 
                 forward *= slowDown;
                 
                 if (autoSpeed > 0 && forward < minForward) forward = minForward;
-                if (autoSpeed < 0 && forward > minForward) forward = -minForward;
+                if (autoSpeed < 0 && forward > -minForward) forward = -minForward;
                 
                 if (forward > 127) forward = 127;   // Cap max and min speed
                 if (forward < -127) forward = -127;
@@ -658,7 +645,7 @@ void run_drive(void* params) {
             }
             
             // Turn code
-            double driveMag = autoSpeed;
+            double driveMag = abs(autoSpeed);
             double seek = targetDirection;
             double angle = 0;
             
@@ -671,7 +658,7 @@ void run_drive(void* params) {
                 angle /= ticksPerDegree;
             }
             
-        if (angle < 0) angle += 360;
+            if (angle < 0) angle += 360;
             if (angle > 180) angle -= 360;
             
             angle /= (2 * turnRate);
@@ -746,7 +733,7 @@ void run_drive(void* params) {
             
         }
         // Auto-move is complete, so stop moving
-        if (autonComplete) {
+        if (autonComplete && autoFireState == -1) {
             autonComplete = false;
             autoMode = DRIVEMODE_USER;
             forward = 0;
@@ -897,6 +884,10 @@ double getRelativeAngle(int location = CENTER, int target = DEFAULT) {
         }
     }
     
+    // Aim at the edge of the flag for better chance of toggleing
+    if (lookingFor == RED_FLAG) closestDist += FLAG_OFFSET;
+    if (lookingFor == BLUE_FLAG) closestDist -= FLAG_OFFSET;
+    
     return -closestDist/VISION_SEEK_RATE;
     
 }
@@ -912,6 +903,7 @@ void run_flywheel(void* params) {
     bool coast = false;
     bool toggledCoast = false;
     bool fireBall = false;
+    bool justAskedForFire = false;
     
     while (true) {
         
@@ -926,6 +918,8 @@ void run_flywheel(void* params) {
         if (!coast) targetSpeed = 0;
         
         ballIsIn = getInnerSensor();
+        
+        if (autoFireState == -1) fireBall = false;
         
         if (autoFireState != -1) {  // Auto fire
             
@@ -955,6 +949,7 @@ void run_flywheel(void* params) {
             
             // Lookup distance in flywheelSpeeds table, & interpolate to find speed
             targetSpeed = flyWheelDefaultSpeed;
+            
             if (autoFireState <= 2 && distance != -1) {
                 int index = -1;
                 for (int i = 1; i < flyWheelSpeedsDefinition; i++) {
@@ -987,6 +982,9 @@ void run_flywheel(void* params) {
                 }
             }
             
+            if (flywheelRunSpeed != -1)
+                targetSpeed = flywheelRunSpeed;
+            
             // Read vision sensor & ask drive to turn appropriately
             if (abs(relativeAngle) > 0) turnRelative(relativeAngle,autoFireTimeout);
             
@@ -1017,11 +1015,13 @@ void run_flywheel(void* params) {
                 if (targetFlag == 3) {  // wanted to shoot high then low
                     targetFlag = 1;
                     fireBall = false;
+                    flywheelRunSpeed = -1;
                 }
                 else {
                     autoFireState = -1;
                     targetSpeed = flyWheelDefaultSpeed;
                     fireBall = false;
+                    flywheelRunSpeed = -1;
                     driveStop();
                 }
             }
@@ -1036,37 +1036,52 @@ void run_flywheel(void* params) {
         // If manual intake buttons pressed, override intake speeds
         if (controlMode == FLYWHEEL) {
             if (controller.get_digital(BTN_FIRE_LOW)) { // auto fire low
-                if (autoFireState <= 0)
-                    autoFireState = 2;
-                else
-                    autoFireState = 1;
-                
-                autoFireTimeout = -1;
-                targetFlag = 1;
-                fireBall = false;
+                if (!justAskedForFire) {
+                    if (autoFireState <= 0)
+                        autoFireState = 2;
+                    else
+                        autoFireState = 1;
+                    
+                    autoFireTimeout = -1;
+                    targetFlag = 1;
+                    fireBall = false;
+                    justAskedForFire = true;
+                    flywheelRunSpeed = -1;
+                }
             }
-            if (controller.get_digital(BTN_FIRE_HIGH)) { // auto fire high
-                if (autoFireState <= 0)
-                    autoFireState = 2;
-                else
-                    autoFireState = 1;
-                targetFlag = 2;
-                autoFireTimeout = -1;
-                fireBall = false;
+            else if (controller.get_digital(BTN_FIRE_HIGH)) { // auto fire high
+                if (!justAskedForFire) {
+                    if (autoFireState <= 0)
+                        autoFireState = 2;
+                    else
+                        autoFireState = 1;
+                    targetFlag = 2;
+                    autoFireTimeout = -1;
+                    fireBall = false;
+                    justAskedForFire = true;
+                    flywheelRunSpeed = -1;
+                }
             }
-            if (controller.get_digital(BTN_FIRE_BOTH)) { // auto fire both
-                if (autoFireState <= 0)
-                    autoFireState = 2;
-                else
-                    autoFireState = 1;
-                targetFlag = 3;
-                autoFireTimeout = -1;
-                fireBall = false;
+            else if (controller.get_digital(BTN_FIRE_BOTH)) { // auto fire both
+                if (!justAskedForFire) {
+                    if (autoFireState <= 0)
+                        autoFireState = 2;
+                    else
+                        autoFireState = 1;
+                    targetFlag = 3;
+                    autoFireTimeout = -1;
+                    fireBall = false;
+                    justAskedForFire = true;
+                    flywheelRunSpeed = -1;
+                }
+            }
+            else {
+                justAskedForFire = false;
             }
             /*if (controller.get_digital(BTN_FIRE_PRESET)) { // auto fire preset
-                autoFireState = 3;
-                autoFireTimeout = -1;
-            }*/
+             autoFireState = 3;
+             autoFireTimeout = -1;
+             }*/
             
             if (controller.get_digital(BTN_INTAKE_IN)) { // manual run intake in
                 intakeSpeedInner = 127;
@@ -1104,6 +1119,7 @@ void run_flywheel(void* params) {
             // runTillBall = 0;
             forceIntake = false;
             fireBall = false;
+            flywheelRunSpeed = -1;
         }
         
         if (runTillBall) {
@@ -1178,7 +1194,7 @@ void run_arm(void* params) {
         
         // If we want to stack something, follow the steps
         switch (stackStep) {
-            // High Stacking
+                // High Stacking
             case HIGH_STACK_START:
                 if (!controller.get_digital(BTN_ARM_HIGH)) {
                     stackStep++;
@@ -1199,7 +1215,7 @@ void run_arm(void* params) {
                 }
                 break;
             case HIGH_STACK_START + 3:
-                if (timeLastStep + 500 < millis()) {
+                if (timeLastStep + 1000 < millis()) {
                     stackStep++;
                 }
                 break;
@@ -1231,7 +1247,7 @@ void run_arm(void* params) {
                 }
                 break;
                 
-            // Low Stacking
+                // Low Stacking
             case LOW_STACK_START:
                 if (!controller.get_digital(BTN_ARM_LOW)) {
                     stackStep++;
@@ -1387,26 +1403,26 @@ void run_arm(void* params) {
                         stackStep = KNOCK_HIGH_START;
                 }
                 /*slowSeek = false;
-                if (!justArmToggled) {
-                    if (armSeek == ARM_POS_HIGH) armSeek = ARM_POS_DOWN;
-                    else armSeek = ARM_POS_HIGH;
-                }
-                justArmToggled = true;*/
+                 if (!justArmToggled) {
+                 if (armSeek == ARM_POS_HIGH) armSeek = ARM_POS_DOWN;
+                 else armSeek = ARM_POS_HIGH;
+                 }
+                 justArmToggled = true;*/
             }
             if (controller.get_digital(BTN_ARM_LOW)) {
                 if (stackStep == -1 || stackStep < LOW_STACK_START) {
                     stackStep = LOW_STACK_START;
                 }
                 /*slowSeek = false;
-                if (!justArmToggled) {
-                    if (armSeek == ARM_POS_LOW) armSeek = ARM_POS_DOWN;
-                    else armSeek = ARM_POS_LOW;
-                }
-                justArmToggled = true;*/
+                 if (!justArmToggled) {
+                 if (armSeek == ARM_POS_LOW) armSeek = ARM_POS_DOWN;
+                 else armSeek = ARM_POS_LOW;
+                 }
+                 justArmToggled = true;*/
             }
             /*else {
-                justArmToggled = false;
-            }*/
+             justArmToggled = false;
+             }*/
             
         }
         if (controller.get_digital(BTN_ABORT)) {                // Stop all auton functions!
@@ -1427,7 +1443,7 @@ void run_arm(void* params) {
         if (wristSeek != -1) {
             
             double actualWristSeek = wristSeek + ( armPos * 3 / 5 );
- 
+            
             if (actualWristSeek < 0) actualWristSeek = 0;
             if (actualWristSeek > 800) actualWristSeek = 800;
             
@@ -1560,7 +1576,7 @@ void run_auton() {
                     aimLocation = processEntry();
                     pauseTime = (processEntry() * 1000) + pros::millis();
                     aimPlease = true;
-                    std::cout << "Aim Turn" << std::endl;
+                    std::cout << "Turn Aim" << std::endl;
                     break;
                 case TURN_ENC:
                     turnRelativeEncoder(processEntry(),processEntry());
@@ -1569,17 +1585,26 @@ void run_auton() {
                 case SET_GYRO:
                     setGyro(processEntry() * 10);
                     std::cout << "Set Gyro" << std::endl;
-                    break;
-                case FIRE_PRESET:
-                    autoFireState = 3;
-                    autoFireTimeout = processEntry();
-                    std::cout << "Fire Preset" << std::endl;
                     nextCommand = true;
                     break;
                 case FIRE_AIM:
-                    autoFireTimeout = processEntry();
                     autoFireState = 1;
                     targetFlag = processEntry();
+                    autoFireTimeout = -1;
+                    std::cout << "Fire Aim" << std::endl;
+                    nextCommand = true;
+                    flywheelRunSpeed = -1;
+                    break;
+                case FIRE:
+                    autoFireState = 1;
+                    targetFlag = processEntry();
+                    flywheelRunSpeed = processEntry();
+                    autoFireTimeout = -1;
+                    std::cout << "Fire" << std::endl;
+                    nextCommand = true;
+                    break;
+                case STOP_FIRE:
+                    autoFireState = -1;
                     std::cout << "Fire Aim" << std::endl;
                     nextCommand = true;
                     break;
@@ -1603,7 +1628,7 @@ void run_auton() {
                     std::cout << "Wrist Seek" << std::endl;
                     nextCommand = true;
                     break;
-                case FLIPPERSEEK:
+                case FLIPSEEK:
                     flipperSeek = processEntry();
                     std::cout << "Flipper Seek" << std::endl;
                     nextCommand = true;
@@ -1760,6 +1785,11 @@ void run_auton() {
                 std::cout << "Pause Finished - " << pros::millis() << std::endl;
             }
             if (pauseTime == GOTBALLS && getInnerSensor() && getOuterSensor()) {
+                nextCommand = true;
+                pauseTime = 0;
+                std::cout << "Pause Finished - " << pros::millis() << std::endl;
+            }
+            if (pauseTime == STACKED && stackStep == -1) {
                 nextCommand = true;
                 pauseTime = 0;
                 std::cout << "Pause Finished - " << pros::millis() << std::endl;
