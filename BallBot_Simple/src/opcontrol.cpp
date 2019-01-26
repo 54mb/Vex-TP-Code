@@ -97,7 +97,7 @@ using namespace pros;
 #define MAX_FLAG_HEIGHT 500             // Tallest object camera will recognise
 #define MIN_FLAG_Y -200                 // Lowest camera will recognise object
 #define AIM_ACCEPT 5                    // Stop auto-aiming within x
-#define FLAG_OFFSET 10
+#define FLAG_OFFSET 1//5
 #define FLYWHEEL_AIM_RANGE 5            // fire ball when within x degrees of flag
 #define VISION_SEEK_RATE 3              // How fast to turn to aim, bigger = slower
 
@@ -233,21 +233,23 @@ double wristOffset = 0;
 
 int stackTarget = -1;
 int stackStep = -1;
+double lastAutonTime = 0;
 
 // Array for flywheel speed lookup'
 // Distance (tiles), low flag speed (rpm), high flag speed (rpm)
 // For each distance we record flywheel speeds needed for hitting high/low flags
 
-#define FLYWHEEL_SPEED_RANGE 30          // fire ball when within x rpm of target speed
-#define flywheelSlowSpeed 50
+#define FLYWHEEL_SPEED_RANGE 15          // fire ball when within x rpm of target speed
+#define flywheelSlowSpeed 80
 #define flywheelFastSpeed 127
 
 double flywheelRunSpeed = 0;
-double flyWheelDefaultSpeed = 80;    // set speed for fixed-dist fireing
+double flyWheelDefaultSpeed = 100;    // set speed for fixed-dist fireing
+bool coast = false;
 double flyWheelSpeeds[2][3] = {                 // CALIBRATE & add more
     // Dist, Low Flag Speed, High Flag Speed
     {-100, 0, 0},   // to catch errors
-    {0, 500, 400},
+    {0, 500, 500},
 };
 int flyWheelSpeedsDefinition = 4;   // number of entries
 double autoFireTimeout = -1;
@@ -900,7 +902,6 @@ void run_flywheel(void* params) {
     bool ballIsIn = false;
     bool ballWasIn = false;
     bool justToggledAutoBall = false;
-    bool coast = false;
     bool toggledCoast = false;
     bool fireBall = false;
     bool justAskedForFire = false;
@@ -1506,7 +1507,6 @@ void run_auton() {
     int aimLocation = 0;
     bool aimPlease = false;
     
-    
     while (true) {
         
         // Auton table decipherer - switch statement
@@ -1528,7 +1528,14 @@ void run_auton() {
                     pauseTime = processEntry();
                     std::cout << "Pause" << std::endl;
                     if (pauseTime > 0) pauseTime = (pauseTime * 1000) + pros::millis();
-                    if (pauseTime < 0) pauseTimeOut = (processEntry() * 1000) + pros::millis();
+                    if (pauseTime < 0) {
+                        if (pauseTime == UNTIL) {
+                            pauseTimeOut = (processEntry() * 1000);
+                        }
+                        else {
+                            pauseTimeOut = (processEntry() * 1000) + pros::millis();
+                        }
+                    }
                     break;
                 case DRIVE:
                     ds = processEntry();
@@ -1675,11 +1682,20 @@ void run_auton() {
                     break;
                 case END:
                     std::cout << "Auton Finished: " << pros::millis() << std::endl;
-                    std::cout << "Auton Took: " << (pros::millis() - startTime)/1000 << " Seconds" << std::endl;
+                    lastAutonTime = (pros::millis() - startTime)/1000;
+                    std::cout << "Auton Took: " << lastAutonTime << " Seconds" << std::endl;
                     break;
                 case STOP_FLYWHEEL:
                     autoFireState = -1;
                     std::cout << "Stop Flywheel" << std::endl;
+                    nextCommand = true;
+                    break;
+                case STOP_COAST:
+                    coast = false;
+                    nextCommand = true;
+                    break;
+                case START_COAST:
+                    coast = true;
                     nextCommand = true;
                     break;
                 default:
@@ -1753,7 +1769,7 @@ void run_auton() {
         }
         
         if (pauseTime == UNTIL) {
-            if (millis() - startTime > pauseTimeOut * 1000) {
+            if (millis() - startTime > pauseTimeOut) {
                 pauseTime = 0;
                 nextCommand = true;
                 pauseTimeOut = 0;
@@ -1842,7 +1858,7 @@ void opcontrol() {
         
         std::cout << "Sensor: " << sensor_gyro.get_value() << " Gyro: " << gyroDirection << " Direction: " << direction << std::endl;
         //std::cout << " Arm Pos: " << armPos << " Wrist Pos: " << wristPos << " Flip Pos: " << flipperPos << " Stack Step " << stackStep << std::endl;
-        
+        std::cout << "Last Auton Took: " << lastAutonTime << " Seconds" << std::endl;
         int  count_B = 0;
         int  count_R = 0;
         int  count_G = 0;

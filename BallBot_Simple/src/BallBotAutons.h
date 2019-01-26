@@ -39,6 +39,8 @@ int autonSelect = 0;                    // Routine to start on
 #define FINISH_LOW_STACK -20            // Finish low stack
 #define TURN_AIM -21                    // Turn to aim at _____ (target, location, time)
 #define STOP_FIRE -22                   // Cancel Fire
+#define START_COAST -23                 // Start flywheel coast
+#define STOP_COAST -24                  // Stop flywheel coast
 
 #define BLUE_FLAG 1                     // Blue flag for aiming
 #define RED_FLAG 2                      // Red flag for aiming
@@ -95,6 +97,7 @@ double blueAuton[] = {
 };
 
 double redAuton[] = {                   // RED SIDE, WE WANT 19 PT SWING
+    
     135,                                // START FACING 315
     
     WRISTSEEK,-1000,                    // DEPLOY FLIPPER
@@ -111,68 +114,83 @@ double redAuton[] = {                   // RED SIDE, WE WANT 19 PT SWING
     DRIVE,70,135,WHITE_R,2,             // DRIVE TILL RIGHT SENSOR IS OVER START TILE
     TURN,180,2,                         // TURN FOR NEXT DRIVE
     DRIVE,70,180,BLACK_B,2,             // DRIVE UNTIL OFF START TILE
-    DRIVE,-70,180,DISTANCE,0.125,1,     // DRIVE TO LINE UP
+    DRIVE,-90,180,DISTANCE,0.05,1,      // DRIVE TO LINE UP
     TURN,90,2,                          // TURN TO LINE UP
-    DRIVE,70,90,DISTANCE,0.25,1,        // DRIVE TO WALL
+    DRIVE,70,90,DISTANCE,0.2,1,         // DRIVE TO WALL
     
     STACK_HIGH,                         // STACK CAP 1
     PAUSE,STACKED,10,                   // WAIT TILL STACKED
     
-    DRIVE,-70,90,DISTANCE,0.5,2,        // DRIVE AWAY FROM WALL
+    START_COAST,                        // START FLYWHEEL SPIN-UP
+    
+    DRIVE,-127,90,DISTANCE,0.5,2,        // DRIVE AWAY FROM WALL
     TURN,180,2,                         // TURN TO INTAKE BALL
     INTAKE_ON,                          // TURN INTAKE ON
-    DRIVE,70,180,DISTANCE,0.5,2,        // DRIVE WITHIN RANGE OF OTHER BOT
+    DRIVE,127,180,DISTANCE,0.5,2,        // DRIVE WITHIN RANGE OF OTHER BOT
     
     PAUSE,GOTBALLS,5,                   // WAIT UNTIL BALL ARRIVED
     
-    DRIVE,-70,180,DISTANCE,0.5,2,       // DRIVE AWAY FROM OTHER BOT
+    DRIVE,-127,245,DISTANCE,0.6,2,       // DRIVE AWAY FROM OTHER BOT
     
     TURN,0,2,                           // TURN TOWARDS FLAGS
     TURN_AIM,BLUE_FLAG,LEFT,2,          // AIM AT LEFT-MOST BLUE FLAG
-    DRIVE,70,CDIR,DISTANCE,0.5,2,       // DRIVE TO TOP FLAG DIST
+    DRIVE,127,CDIR,DISTANCE,0.75,2,       // DRIVE TO TOP FLAG DIST
     FIRE_AIM,TOP,                       // SHOOT TOP FLAG
     PAUSE,FIRED,5,                      // WAIT TILL SHOT
+    PAUSE,0.25,                         // SHORT PAUSE
     STOP_FIRE,                          // STOP FLYWHEEL
     
-    DRIVE,70,CDIR,DISTANCE,1,2,         // DRIVE TO MIDDLE FLAG DIST
+    DRIVE,127,CDIR,DISTANCE,1,2,         // DRIVE TO MIDDLE FLAG DIST
     FIRE_AIM,MIDDLE,                    // SHOOT MIDDLE FLAG
     PAUSE,FIRED,5,                      // WAIT TILL SHOT
+    PAUSE,0.25,                         // SHORT PAUSE
     STOP_FIRE,                          // STOP FLYWHEEL
     
-    DRIVE,70,0,DISTANCE,1,2,            // DRIVE TO TOGGLE BOTTOM FLAG
+    STOP_COAST,                         // TURN FLYWHEEL FULLY OFF
+    
+    INTAKE_OFF,                         // TURN INTAKE OFF
+    
+    DRIVE,127,0,0.5,                    // DRIVE TO TOGGLE BOTTOM FLAG
     PAUSE,0.25,                         // SHORT PAUSE
     
-    DRIVE,-127,0,WHITE_L,4,             // DRIVE TO START TILE
-    DRIVE,-100,0,BLACK_L,2,             // DRIVE OFF OF START TILE
+    TURN,0,1,                           // TURN STRAIGHT
     
-    TURN,315,2,                         // TURN FOR PLATFORM BALL
+    DRIVE,-127,0,DISTANCE,0.5,2,        // DRIVE AWAY A LITTLE
+    
     INTAKE_ON,                          // TURN INTAKE ON
     
-    DRIVE,90,315,DISTANCE,1,2,          // DRIVE W/ GLANCING BLOW ON PLATFORM
-    TURN,270,0.5,                       // TURN FOR NEXT MOVE
-    DRIVE,100,270,DISTANCE,1,2,         // DRIVE TO GET BALL FROM UNDER CAP
+    DRIVE,-127,0,WHITE_L,4,             // DRIVE TO START TILE
+    DRIVE,-127,0,DISTANCE,0.5,1,        // DRIVE TO LINE UP
     
-    PAUSE,0.5,                          // SHORT PAUSE
-    DRIVE,-70,270,DISTANCE,0.5,2,       // DRIVE AWAY FROM CAP
+    TURN,270,2,                       // TURN FOR NEXT MOVE
+    DRIVE,127,270,DISTANCE,1.75,2,         // DRIVE TO GET BALL FROM UNDER CAP
+    
+    DRIVE,-127,270,DISTANCE,0.5,2,       // DRIVE AWAY FROM CAP
     
     TURN,315,2,                         // TURN TOWARDS CENTER FLAGS
     TURN_AIM,BLUE_FLAG,CENTER,2,        // AIM AT CENTER-MOST BLUE FLAG
-    DRIVE,70,CDIR,DISTANCE,0.5,2,       // DRIVE TO TOP FLAG DIST
+    DRIVE,127,CDIR,DISTANCE,0.75,2,       // DRIVE TO TOP FLAG DIST
     
     PAUSE,UNTIL,35,                     // WAIT TILL LAST 10 SECONDS
     
+    START_COAST,                        // START FLYWHEEL SPINUP
     FIRE_AIM,TOP,                       // SHOOT TOP FLAG
     PAUSE,FIRED,5,                      // WAIT TILL SHOT
+    PAUSE,0.25,                         // SHORT PAUSE
     STOP_FIRE,                          // STOP FLYWHEEL
     
-    DRIVE,70,CDIR,DISTANCE,1,2,         // DRIVE TO MIDDLE FLAG DIST
+    DRIVE,127,CDIR,DISTANCE,0.75,2,         // DRIVE TO MIDDLE FLAG DIST
     FIRE_AIM,MIDDLE,                    // SHOOT MIDDLE FLAG
     PAUSE,FIRED,5,                      // WAIT TILL SHOT
+    PAUSE,0.25,                         // SHORT PAUSE
     STOP_FIRE,                          // STOP FLYWHEEL
     
-    DRIVE,127,CDIR,DISTANCE,1,2,        // DRIVE TO TOGGLE BOTTOM FLAG
+    INTAKE_OFF,                         // TURN INTAKE OFF
+    
+    TURN_REL,15,0.5,                         // TURN TO FACE 0
+    DRIVE,127,0,0.5,                 // DRIVE TO TOGGLE BOTTOM FLAG
     PAUSE,UNTIL,44,                     // WAIT UNTIL LAST SECOND
-    DRIVE,-127,315,DISTANCE,1,2,        // DRIVE AWAY FROM FLAGS
+    DRIVE,-127,270,1,                   // DRIVE AWAY FROM FLAGS
     
     END                                 // END OF ROUTINE
 };
