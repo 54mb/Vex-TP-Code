@@ -1522,6 +1522,8 @@ void run_auton() {
         if (nextCommand) {
             std::cout << "Next Command: " << pros::millis() << std::endl;
             nextCommand = false;
+            bool skipToElse = false;
+            int ifLayer = 0;
             switch ((int)processEntry()) {
                 case PAUSE:
                     pauseTimeOut = -1;
@@ -1698,6 +1700,67 @@ void run_auton() {
                     coast = true;
                     nextCommand = true;
                     break;
+                    
+                case IF:    // Check condition and continue, or skip past ELSE/ENDIF
+                    switch ((int)processEntry()) {
+                        case GOTBALL:
+                            if (getInnerSensor() || getOuterSensor())
+                                skipToElse = false;
+                            else
+                                skipToElse = true;
+                            break;
+                        case GOTBALLS:
+                            if (getInnerSensor() && getOuterSensor())
+                                skipToElse = false;
+                            else
+                                skipToElse = true;
+                            break;
+                        case AFTER:
+                            if (millis() - startTime > processEntry()*1000)
+                                skipToElse = false;
+                            else
+                                skipToElse = true;
+                            break;
+                        case BEFORE:
+                            if (millis() - startTime < processEntry()*1000)
+                                skipToElse = false;
+                            else
+                                skipToElse = true;
+                            break;
+                    }
+                    if (skipToElse) {
+                        ifLayer = 0;
+                        while (true) {
+                            int thisCommand = (int)processEntry();
+                            if (thisCommand == IF)      // Nested if is found
+                                ifLayer++;              // Count it
+                            if (ifLayer <= 0)           // If we're on the base level
+                                if (thisCommand == ELSE || thisCommand == ENDIF)
+                                    break;              // Then break when ELSE or ENDIF
+                            if (thisCommand == ENDIF)   // End of nested if
+                                ifLayer--;              // Discount it
+                        }
+                    }
+                    nextCommand = true;
+                    break;
+                case ELSE:  // Just skip to ENDIF
+                    ifLayer = 0;
+                    while (true) {
+                        int thisCommand = (int)processEntry();
+                        if (thisCommand == IF)      // Nested if is found
+                            ifLayer++;              // Count it
+                        if (ifLayer <= 0)           // If we're on the base level
+                            if (thisCommand == ELSE || thisCommand == ENDIF)
+                                break;              // Then break when ELSE or ENDIF
+                        if (thisCommand == ENDIF)   // End of nested if
+                            ifLayer--;              // Discount it
+                    }
+                    nextCommand = true;
+                    break;
+                case ENDIF: // Just continue to next step
+                    nextCommand = true;
+                    break;
+                    
                 default:
                     break;
             }
@@ -1798,7 +1861,7 @@ void run_auton() {
                 pauseTime = 0;
                 std::cout << "Pause Finished - " << pros::millis() << std::endl;
             }
-            if (pauseTime == GOTBALL && getInnerSensor()) {
+            if (pauseTime == GOTBALL && (getInnerSensor() || getOuterSensor())) {
                 nextCommand = true;
                 pauseTime = 0;
                 std::cout << "Pause Finished - " << pros::millis() << std::endl;
