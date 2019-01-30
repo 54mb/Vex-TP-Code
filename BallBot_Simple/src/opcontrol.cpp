@@ -122,8 +122,8 @@ Motor flywheel_2(10, TURBO ,0, DEGREES);
 Motor intake_in(8, SPEED, 1, DEGREES);
 Motor intake_out(9, SPEED, 1, DEGREES);
 // Arm Motors
-Motor arm_1(7, SPEED, 0, DEGREES);
-Motor arm_2(18, SPEED, 1, DEGREES);
+Motor arm_1(7, TORQUE, 0, DEGREES);
+Motor arm_2(18, TORQUE, 1, DEGREES);
 // Flipper
 Motor wrist(17, SPEED, 1, DEGREES);
 Motor flip(20, SPEED, 0, DEGREES);
@@ -240,18 +240,21 @@ double lastAutonTime = 0;
 // For each distance we record flywheel speeds needed for hitting high/low flags
 
 #define FLYWHEEL_SPEED_RANGE 15          // fire ball when within x rpm of target speed
-#define flywheelSlowSpeed 80
+#define flywheelSlowSpeed 50
 #define flywheelFastSpeed 127
 
 double flywheelRunSpeed = 0;
 double flyWheelDefaultSpeed = 100;    // set speed for fixed-dist fireing
 bool coast = false;
-double flyWheelSpeeds[2][3] = {                 // CALIBRATE & add more
+double defaultFlywheelDistance = 1;
+
+double flyWheelSpeeds[12][3] = {                 // CALIBRATE & add more
     // Dist, Low Flag Speed, High Flag Speed
-    {-100, 0, 0},   // to catch errors
-    {0, 500, 500},
+    {-100,  0,  0},   // to catch errors
+    {0,     0,  0},
+    {1,     450,  450},
 };
-int flyWheelSpeedsDefinition = 4;   // number of entries
+int flyWheelSpeedsDefinition = 12;   // number of entries
 double autoFireTimeout = -1;
 
 
@@ -622,7 +625,9 @@ void run_drive(void* params) {
             }
             
             if (autoMode == DRIVEMODE_DIST) {   // If auto move should end with a distance
-                double slowDown = abs((targetDistance - currentDist) / (0.75 * ticksPerTile));
+                double slowDown = abs((targetDistance - currentDist) / (0.35 * ticksPerTile));
+                
+                if (slowDown > 1) slowDown = 1;
                 
                 forward *= slowDown;
                 
@@ -808,7 +813,7 @@ bool getOuterSensor() {
     return lower_IR.get_value();
 }
 double getDistance() {
-    return 0;
+    return defaultFlywheelDistance;
 }
 
 
@@ -1216,7 +1221,7 @@ void run_arm(void* params) {
                 }
                 break;
             case HIGH_STACK_START + 3:
-                if (timeLastStep + 1000 < millis()) {
+                if (timeLastStep + 250 < millis()) {
                     stackStep++;
                 }
                 break;
@@ -1235,8 +1240,8 @@ void run_arm(void* params) {
                 // High Knock Off
             case KNOCK_HIGH_START:
                 armSeek = ARM_POS_HIGH;
-                wristSeek = WRIST_BACKWARD_DROP_POS - 50;
-                if (armPos > ARM_POS_HIGH - 50) {
+                wristSeek = WRIST_BACKWARD_DROP_POS - 100;
+                if (armPos > ARM_POS_HIGH) {
                     stackStep++;
                 }
                 break;
@@ -1439,7 +1444,7 @@ void run_arm(void* params) {
             armSpeed = (armSeek - armPos) / armSeekRate;
             if (armSpeed > 100) armSpeed = 100;
             if (armSpeed < -100) armSpeed = -100;
-            if (armSpeed < 0) armSpeed /= 2;        // slower on the way down
+            if (armSpeed < 0) armSpeed /= 1;        // slower on the way down
         }
         if (wristSeek != -1) {
             
