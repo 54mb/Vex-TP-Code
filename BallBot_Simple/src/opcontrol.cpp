@@ -284,6 +284,10 @@ void setWristPos(double pos) {
 
 void initAll() {        // called when robot activates & start of auton
     if (!hasInitialised) {
+        pros::Task flywheelTask (run_flywheel);
+        pros::Task armTask (run_arm);
+        pros::Task driveTask (run_drive);
+        pros::Task gyroTask (run_gyro);
         // First time / manual init...
         // eg. calibrate gyro
         controller.print(0,0,"Calibrating");
@@ -1483,10 +1487,10 @@ void run_auton() {
     initAll();
     
     // Start task
-    pros::Task flywheelTask (run_flywheel);
-    pros::Task armTask (run_arm);
-    pros::Task driveTask (run_drive);
-    pros::Task gyroTask (run_gyro);
+//    pros::Task flywheelTask (run_flywheel);
+//    pros::Task armTask (run_arm);
+//    pros::Task driveTask (run_drive);
+//    pros::Task gyroTask (run_gyro);
     
     int driveMode = 0;
     double pauseTime = 0;
@@ -1913,10 +1917,7 @@ void run_auton() {
 void opcontrol() {
     
     // Start task
-    pros::Task flywheelTask (run_flywheel);
-    pros::Task armTask (run_arm);
-    pros::Task driveTask (run_drive);
-    pros::Task gyroTask (run_gyro);
+   
     
     bool justToggledAuto = false;
     
