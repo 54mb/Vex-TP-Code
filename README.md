@@ -1,6 +1,13 @@
 # Vex-TP-Code
 Code for VEX Turning Point USC 2018-2019...
 
+Code Will Now be updated here:
+> https://github.com/uscvex/RobotCode/tree/master/TurningPoint
+
+
+
+
+
 GitHub Cheat Sheet (Mac):
 
 Navigate to repository in termial
