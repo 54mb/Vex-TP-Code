@@ -1,48 +1,7 @@
-# Vex-TP-Code
-Code for VEX Turning Point USC 2018-2019...
 
-Code will now be updated here:
-> https://github.com/uscvex/RobotCode/tree/master/TurningPoint
+Code for USC VEXU Robotics Team
 
+Most relevent code is in BallBot/src/opcontrol.cpp
+Autonomous routes are in BallBot/src/BallBotAutons.h - these are written in our own scripting language which opcontrol.cpp translates into commands for the robot
 
-
-
-
-GitHub Cheat Sheet (Mac):
-
-Navigate to repository in termial
-
-To Pull:
-> git pull
-
-Then make changes
-
-Save files and type
-> git status
-
-List of files you changed should come up
-
-For each file you changes
-> git add filename
-
-Once youve got all of them
-> git commit -m "update message in quotes"
-
-> git push
-
-
-Pros Setup...
-> Get latest version of Python https://www.python.org/downloads/
-
-> Follow steps here: https://github.com/purduesigbots/pros-cli3/releases
-
-
-Pros Commands:
-
-> prosv5 new-project [project name] --> creates new project
-
-> prosv5 make --> compiles changes
-
-> prosv5 make all --> compiles everything
-
->prosv5 upload --> uploads to controller
+Appologies since the code is not particularly well organised. The competition deadlines were tight to the point at which it was more important to get the code working than to make it pretty (which I will do next).
