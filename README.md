@@ -1,6 +1,8 @@
 
 Code for USC VEXU Robotics Team
 
+Our organization is private, so here is a copy of the code I've contributed to our organization. 
+
 Most relevent code is in BallBot/src/opcontrol.cpp
 
 Autonomous routes are in BallBot/src/BallBotAutons.h - these are written in our own scripting language which opcontrol.cpp translates into commands for the robot
