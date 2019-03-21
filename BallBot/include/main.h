@@ -35,14 +35,13 @@
 #define PROS_USE_LITERALS
 
 #include "api.h"
-//#include "usclib.h"
-//#include "../src/BallBot.hpp"
 
 /**
  * You should add more #includes here
  */
 //#include "okapi/api.hpp"
 //#include "pros/api_legacy.h"
+#include <vector>
 
 /**
  * If you find doing pros::Motor() to be tedious and you'd prefer just to do
@@ -64,11 +63,55 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+struct    gyros {                     //create a structure to be used by the gyro code
+    short    port;          //gyro port
+    double    truedir;                          //corrected direction
+    double    last;                         //last direction pointing
+    double    ascale;                           //anti-clockwise scale adjustment
+    double    cscale;                    //clockwise scale adjustment
+};
+    
 void autonomous(void);
 void initialize(void);
 void disabled(void);
 void competition_initialize(void);
 void opcontrol(void);
+
+void resetGyro();
+void setGyro(double);
+void checkGyro(gyros *gyro);
+void run_gyro(void*);
+    
+void initAll();
+double processEntry();
+    
+    double getRightEnc();
+    double getLeftEnc();
+    
+void driveStop();
+void driveTime();
+void driveDist();
+void driveCustom();
+void turnTo();
+void turnRelative();
+void turnRelativeEncoder();
+    
+void setArmPos();
+void setFlipperPos();
+void setWristPos();
+    
+void run_drive(void*);
+double getFlywheelSpeed();
+bool getInnerSensor();
+bool getOuterSensor();
+double getDistance();
+double getRelativeAngle(int, int);
+void run_flywheel(void*);
+void run_arm(void*);
+void run_auton();
+void run_screen(void* params);
+void serialRead(void* params);
+    
 #ifdef __cplusplus
 }
 #endif

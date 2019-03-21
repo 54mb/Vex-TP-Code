@@ -1,14 +1,32 @@
 #include "main.h"
-#include "BallBot.hpp"
+
+/*
+ #define BTN_TOGGLE DIGITAL_DOWN
+ #define BTN_ABORT DIGITAL_UP
+ 
+ // Flywheel
+ #define BTN_FIRE_HIGH DIGITAL_L1
+ #define BTN_FIRE_LOW DIGITAL_L2
+ #define BTN_INTAKE_IN DIGITAL_R1
+ #define BTN_INTAKE_OUT DIGITAL_R2
+ #define BTN_FIRE_BOTH DIGITAL_B
+ 
+ 
+ // Arm
+ #define BTN_WRIST_UP DIGITAL_RIGHT
+ #define BTN_WRIST_DOWN DIGITAL_LEFT
+ #define BTN_ARM_UP DIGITAL_X
+ #define BTN_ARM_DOWN DIGITAL_B
+ #define BTN_FLIPPER_LEFT DIGITAL_Y
+ #define BTN_FLIPPER_RIGHT DIGITAL_A
+ #define BTN_FLIP DIGITAL_R1
+ #define BTN_WRIST DIGITAL_R2
+ #define BTN_ARM_HIGH DIGITAL_L1
+ #define BTN_ARM_LOW DIGITAL_L2
+ */
 
 void on_center_button() {
-	static bool pressed = false;
-	pressed = !pressed;
-	if (pressed) {
-		pros::lcd::set_text(2, "I was pressed!");
-	} else {
-		pros::lcd::clear_line(2);
-	}
+    // Do something if we like
 }
 
 /**
@@ -18,15 +36,13 @@ void on_center_button() {
  * to keep execution time for this mode under a few seconds.
  */
 void initialize() {
-	pros::lcd::initialize();
-	pros::lcd::set_text(1, "Hello PROS User!");
-
-	pros::lcd::register_btn1_cb(on_center_button);
+    pros::lcd::initialize();
+    pros::lcd::set_text(0, "USC VEX MULTI-BOT");
     
-    initAll();
+    pros::lcd::register_btn1_cb(on_center_button);
     
-    // Set up drive, flywheel, arm, wrist, and flipper
-    drive.setController(&controller);
+    initAll();  // My function
+    
 }
 
 /**
