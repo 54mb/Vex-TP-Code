@@ -2,7 +2,6 @@
 //
 // All code for multi-bot is contained here (minus auton routines)
 // Created by Sam Burton
-//
 
 
 // Un-comment to skip calibration for timed skills run
@@ -17,27 +16,29 @@ using namespace pros;
 
 // Do we want to use serial gyro?
 // Comment this entire line if no
-#define USE_SERIAL_GYRO 1
+//#define USE_SERIAL_GYRO 1
 
 
-
+// Defines for different gearings for motors
 #define TURBO E_MOTOR_GEARSET_06
 #define SPEED E_MOTOR_GEARSET_18
 #define TORQUE E_MOTOR_GEARSET_36
 #define DEGREES E_MOTOR_ENCODER_DEGREES
 
+// Defines for control modes flywheel/arm
 #define FLYWHEEL 1
 #define ARM 2
 
 ///////////////////////////////////////////////////////////////////////////
 // Controller Mapping
-// #defines for controller buttons      // CONTROLLER BUTTON
+// #defines for controller buttons
 
+// General
 #define BTN_TOGGLE DIGITAL_DOWN
 #define BTN_ABORT DIGITAL_UP
 #define BTN_CHOOSE_AUTON DIGITAL_X
 
-// Flywheel
+// Flywheel mode
 #define BTN_FIRE_HIGH DIGITAL_L1
 #define BTN_FIRE_LOW DIGITAL_L2
 #define BTN_INTAKE_IN DIGITAL_RIGHT
@@ -45,8 +46,9 @@ using namespace pros;
 #define BTN_FIRE_BOTH DIGITAL_B
 #define BTN_TOGGLE_COAST DIGITAL_A
 #define BTN_TOGGLE_INTAKE DIGITAL_Y
+#define BTN_TOGGLE_SCRAPER DIGITAL_X
 
-// Arm
+// Arm mode
 #define BTN_WRIST_UP DIGITAL_RIGHT
 #define BTN_WRIST_DOWN DIGITAL_LEFT
 #define BTN_ARM_UP DIGITAL_X
@@ -58,6 +60,8 @@ using namespace pros;
 #define BTN_ARM_HIGH DIGITAL_L1
 #define BTN_ARM_LOW DIGITAL_L2
 
+
+// Defines for auto-stack miniroutines
 #define HIGH_STACK_START 1
 #define KNOCK_HIGH_START 500
 #define LOW_STACK_START 1000
@@ -69,14 +73,16 @@ using namespace pros;
 #define wristSeekRate 0.25
 #define wristSeekSlow 8
 #define flipperSeekRate 1
+#define scraperSeekRate 0.25
 
-// Gyro Stuff
+
+// Gyro Correction Values
 #ifdef USE_SERIAL_GYRO
-    #define CSCALE 1    // 0.9876     //Clockwise scale adjustments to counteract rotation errors
-    #define ASCALE 1    // 0.9486    //Anti-clockwise scale adjustments to counteract rotation errors
+#define CSCALE 1//1.01111    // 0.9876     //Clockwise scale adjustments to counteract rotation errors
+#define ASCALE 1//1.00999    // 0.9486    //Anti-clockwise scale adjustments to counteract rotation errors
 #else
-    #define CSCALE 0.9876     //Clockwise scale adjustments to counteract rotation errors
-    #define ASCALE 0.9486    //Anti-clockwise scale adjustments to counteract rotation errors
+#define CSCALE 0.9876     // Clockwise scale adjustments to counteract rotation errors
+#define ASCALE 0.9486    // Anti-clockwise scale adjustments to counteract rotation errors
 #endif
 
 #define GYRO_PORT 1
@@ -87,12 +93,13 @@ using namespace pros;
 #define MAX_FLAG_HEIGHT 500             // Tallest object camera will recognise
 #define MIN_FLAG_Y -200                 // Lowest camera will recognise object
 #define AIM_ACCEPT 5                    // Stop auto-aiming within x
-#define FLAG_OFFSET 1//5
+#define FLAG_OFFSET 1                   // Value to add/subtract to angle to hit flag closer to edge
 #define FLYWHEEL_AIM_RANGE 5            // fire ball when within x degrees of flag
 #define VISION_SEEK_RATE 3              // How fast to turn to aim, bigger = slower
 
 #include "BallBotAutons.h"              // File with autonomous routine steps
 
+// Defines for auton routine numbers
 #define REDAUTON 0
 #define BLUEAUTON 1
 #define SKILLSAUTON 2
@@ -123,86 +130,277 @@ Motor arm_2(18, TORQUE, 1, DEGREES);
 // Flipper
 Motor wrist(17, SPEED, 1, DEGREES);
 Motor flip(20, SPEED, 0, DEGREES);
+// Skills Scraper
+Motor scraper(13,TORQUE,0,DEGREES);
+
 // Gyro Sensor
 ADIGyro sensor_gyro(1, GYRO_PORT);  // A
-// Inner Intake Button
+// Other sensors
 ADIDigitalIn upper_IR (2);  // B
 ADIDigitalIn lower_IR (3);  // C
 ADIDigitalIn left_IR (4);   // D
 ADIDigitalIn right_IR (5);  // E
 ADIDigitalOut ballLight(6); // F
 ADIUltrasonic sonar (7,8);  // G,H
-
+// Vision sensor
 Vision camera(16);
 
 
-// 1 Metric Ton of globals
+// 1 Metric F. Ton of globals
 ///////////////////////////////////////////////////////////////
 // Drive tuning variables
 // Drive
-double deadZone = 10;
-double ticksPerTile = 640;
-double minForward = 40;
-double driveLerp = 0.1;
+double deadZone = 10;               // Ignore controller inputs if less than this
+double ticksPerTile = 640;          // Encoder ticks/tile
+double minForward = 40;             // Speed at which to change strength of angle correction whilst driving forward
+double driveLerp = 0.1;             // Value for dampening of drive
 // Turn
-double turnAccepted = 1;
-double pulsePause = 10;
-double pulseTime = 5;
-double minSpeed = 25;
-double maxTurn = 127;
-double turnRate = 150;
-double ticksPerDegree = 10;
+double turnAccepted = 1;            // Range within which we accept a turn
+double pulsePause = 10;             // How long to wait between turn pulses
+double pulseTime = 7;               // How long each pulse should be
+double minSpeed = 20;               // Speed less-than-which to switch to pulse mode
+double maxTurn = 127;               // Max speed to turn at
+double turnRate = 100;              // Tuning value for turn : Smaller = faster
+double ticksPerDegree = 10;         // Encoder ticks/degree
 // Tracking
-double trackingTicksPerTile = 640;
-double trackingTicksPerDegree = 10;
+double trackingTicksPerTile = 640;  // Encoder ticks/tile used for position tracking
+double trackingTicksPerDegree = 10; // Encoder ticks/degree used for position tracking
 
 // Drive control variables
 // Drive
-double autoMode = DRIVEMODE_USER;
-bool autonComplete = false;
-double autoTime = 0;
-bool speedOverride = false;
-double rightRunSpeed = 0;
-double leftRunSpeed = 0;
-bool drivingToPos = false;
-double autoTimeOut = 0;
-double targetDistance = 0;
-double autoSpeed = 0;
-bool usingGyro = true;
-double currentDist = 0;
-double recordedTime = 0;
-double recordedDistLeft = 0;
-double recordedDistRight = 0;
-double lastRightEnc = 0;
-double lastLeftEnc = 0;
-bool usingSonarDist = false;
-double cmPerTile = 610;
+double autoMode = DRIVEMODE_USER;   // Mode for the drive, can be user, time, distance, turn
+bool autonComplete = false;         // Has the drive move completed?
+double autoTime = 0;                // How long to drive for
+bool speedOverride = false;         // Do we want to override the drive & force a speed
+double rightRunSpeed = 0;               // If yes, right side speed is
+double leftRunSpeed = 0;                // And left side speed is
+bool drivingToPos = false;          // Do we want to drive to an (x,y) position
+double autoTimeOut = 0;             // How long should the bot try before giving up
+double targetDistance = 0;          // How far should the bot drive
+double autoSpeed = 0;               // How fast should the bot drive
+bool usingGyro = true;              // Should the bot use the gyro to turn, false = encoder based turns
+double currentDist = 0;             // How far through the distance drive has the bot gotten?
+double recordedTime = 0;            // What time did the bot start the move
+double recordedDistLeft = 0;        // Where was the left encoder at start of move
+double recordedDistRight = 0;       // Where was the right encoder at start of move
+double lastRightEnc = 0;            // Where was the left encoder last frame
+double lastLeftEnc = 0;             // Where was the right encoder last frame
+bool usingSonarDist = false;        // Do we want to use sonar for distance, false = encoder based distance
+double cmPerTile = 610;             // Centimeters per tile for ultrasonic rangefinder (sonar)
 // Turn
-double targetDirection = 0;
-double turnMode = 0;
-double direction = 0;
+double targetDirection = 0;         // Direction we want the bot to face (degrees)
+double turnMode = 0;                // Turn mode, can be encoder of gyro
+double direction = 0;               // Direction the bot thinks it's facing
 // Position Tracking
-double targetX = 0;
-double targetY = 0;
-double targetS = 0;
-double yPosition = 0;
-double xPosition = 0;
-bool trackWithGyro = true;
-double trackingDirection = 0;
+// Some variables are similar to those above, however, this is so we can have different parameters for position tracking
+double targetX = 0;                 // X position we want to get to
+double targetY = 0;                 // Y position we want to get to
+double targetS = 0;                 // Speed we want to drive at
+double yPosition = 0;               // Y position the bot thinks it's at
+double xPosition = 0;               // X position the bot thinks it's at
+bool trackWithGyro = true;          // Do we want to track direction with gyro, false = encoder based direction tracking
+double trackingDirection = 0;       // Direction the bot thinks its facing (for tracking)
 
 
-// Auton Routines
+// Auton Routines - defined in BallBotAutons.h
 extern int autonSelect;
 extern double defaultAuton[];
 extern double redAuton[];
 extern double blueAuton[];
-extern double skills[];
+//extern double skills[];
 extern double redBackAuton[];
 extern double blueBackAuton[];
 
 
-double gyroDirection = 0;
-bool hasInitialised = false;
+#define SCRAPER_FLIP_POS 80
+#define SCRAPER_UP -8
+
+
+
+double skills[] = {
+    270,
+    
+    WRISTSEEK,-1000,                    // DEPLOY FLIPPER
+    FLIPSEEK,FLIP_POS1,                 // MAKE SURE FLIPPER STRAIGHT
+    INTAKE_ON,                          // START INTAKE
+    SCRAPER,SCRAPER_DOWN_POS-10,        // LOWER SCRAPER
+    PAUSE,0.125,
+    DRIVE,90,270,BLACK_B,0.5,          // DRIVE OFF TILE
+    DRIVE,90,270,DISTANCE,1.25,2,      // DRIVE TO FLIP CAP                        FLIP CAP 1
+    WRISTSEEK,WRIST_VERTICAL_POS,       // STOP DEPLOY
+    
+    SCRAPER,SCRAPER_FLIP_POS,           // LOWER SCRAPER FOR NEXT FLIP
+    TURN,220,2,                         // TURN TO FACE NEXT CAP
+    DRIVE,127,220,DISTANCE,1,2,         // DRIVE TO NEXT CAP
+    SCRAPER,SCRAPER_UP_POS,             // FLIP NEXT CAP                            FLIP CAP 2
+    PAUSE,SCRAPER_UP,1,                 // PAUSE UNTIL SCRAPER IS UP
+    DRIVE,-127,220,DISTANCE,1,2,        // DRIVE AWAY FROM CAP
+    
+    SCRAPER,SCRAPER_FLIP_POS,           // LOWER SCRAPER FOR NEXT FLIP
+    TURN,160,2,                         // TURN TO FACE NEXT CAP
+    DRIVE,127,160,DISTANCE,0.5,1,       // DRIVE TO NEXT CAP
+    SCRAPER,SCRAPER_UP_POS,             // FLIP NEXT CAP                            FLIP CAP 3
+    PAUSE,SCRAPER_UP,1,                 // PAUSE UNTIL SCRAPER IS UP
+    DRIVE,-127,160,DISTANCE,0.5,2,      // DRIVE AWAY FROM CAP
+    
+    START_COAST,                        // LET FLYWHEEL SPIN UP TO SPEED
+    
+    TURN,90,2,                          // TURN TO FACE START TILE
+    DRIVE,127,90,WHITE_R,2,             // DRIVE TO START TILE
+    DRIVE,-80,90,0.05,                  // BREAK TO STOP
+    TURN,0,2,                           // TURN TO FACE FLAGS
+    
+    DRIVE,127,1,BLACK_L,2,              // DRIVE OFF START TILE
+    DRIVE,127,1,0.1,
+    DRIVE,127,1,WHITE_L,2,              // DRIVE TO NEXT TILE
+    //DRIVE,127,2,0.1,
+    //DRIVE,100,2,BLACK_L,2,              // DRIVE OFF NEXT TILE
+    DRIVE,127,2,DISTANCE,0.8,1,          // LINE UP FOR SHOT
+    
+    FIRE_AIM,TOP,                       // SHOOT TOP FLAG                           TOP LEFT FLAG
+    PAUSE,FIRED,5,                      // WAIT TILL SHOT
+    PAUSE,0.1,                          // SHORT PAUSE
+    STOP_FIRE,                          // STOP FLYWHEEL
+    
+    DRIVE,127,CDIR,DISTANCE,0.9,2,      // DRIVE TO MIDDLE FLAG DIST
+    FIRE_AIM,TOP,                       // SHOOT MIDDLE FLAG                       MIDDLE LEFT FLAG
+    PAUSE,FIRED,5,                      // WAIT TILL SHOT
+    PAUSE,0.1,                          // SHORT PAUSE
+    STOP_FIRE,                          // STOP FLYWHEEL
+    
+    INTAKE_OFF,                         // TURN INTAKE OFF
+    DRIVE,127,0,0.5,                    // DRIVE TO TOGGLE BOTTOM FLAG              BOTTOM LEFT FLAG
+    SCRAPER,SCRAPER_DOWN_POS,           // LOWER SCRAPER SO IT DOESN'T CATCH THE FLAG
+    DRIVE,-127,0,0.5,                   // DRIVE AWAY FROM FLAG
+    INTAKE_ON,                          // TURN INTAKE BACK ON
+    SCRAPER,SCRAPER_UP_POS,             // RAISE SCRAPER AGAIN
+    
+    TURN,0,2,                           // TURN TO LINE UP
+    DRIVE,-127,0,WHITE_L,2,             // DRIVE TO RED TILE
+    DRIVE,-127,0,DISTANCE,0.5,1,        // DRIVE TO MIDDLE OF IT
+    TURN,90,0,                          // TURN TO FACE WALL
+    
+    DRIVE,100,90,0.5,                   // DRIVE TO WALL
+    SET_GYRO,90,                        // SET GYRO
+    
+    WRISTSEEK,WRIST_FORWARD_POS,        // LOWER FLIPPER
+    TURN,130,2,                         // TURN TO FACE NEXT CAP
+    
+    DRIVE,-127,130,DISTANCE,1.5,2,      // DRIVE TO NEXT CAP
+    WRISTSEEK,WRIST_VERTICAL_POS,       // LIFT CAP
+    PAUSE,0.25,
+    FLIP,
+    TURN,210,2,                         // TURN TO FACE PLATFORM
+    WRISTSEEK,WRIST_FORWARD_POS,        // DROP CAP                                 FLIP CAP 4
+    SCRAPER,SCRAPER_UP_POS,             // ENSURE SCRAPER IS UP
+    DRIVE,127,210,DISTANCE,1.2,2,       // DRIVE TO PLATFORM
+    SCRAPER,SCRAPER_DOWN_POS,           // LOWER SCRAPER
+    WRISTSEEK,WRIST_VERTICAL_POS,       // LIFT FLIPPER
+    FLIPSEEK,FLIP_POS1,                 // REVERT FLIPPER
+    PAUSE,0.5,
+    DRIVE,-127,180,DISTANCE,0.25,1,     // DRIVE AWAY FROM PLATFORM
+    PAUSE,0.5,                          // LET BALL ROLL IN
+    
+    SCRAPER,SCRAPER_DOWN_POS-10,        // MOVE SCRAPER TO CAP FLIP POSITION
+    
+    TURN,270,2,                         // TURN TO FACE NEXT CAP                    FLIP CAP 5
+    DRIVE,90,270,DISTANCE,1,1,         // DRIVE TO FLIP NEXT CAP
+    
+    DRIVE,-127,270,DISTANCE,0.25,1,     // DRIVE AWAY FROM CAP
+    
+    TURN,315,2,                         // TURN TO FACE FLAGS
+    SCRAPER,SCRAPER_UP_POS,             // LIFT SCRAPER TO SAFETY
+    DRIVE,127,0,DISTANCE,0.4,1,         // DRIVE TO CORRECT RANGE
+    TURN,0,1,                           // TURN TO FACE FLAGS
+    DRIVE,127,0,DISTANCE,0.1,1,         // DRIVE TO CORRECT RANGE
+    
+    FIRE_AIM,TOP,                       // SHOOT TOP FLAG                           TOP MIDDLE FLAG
+    PAUSE,FIRED,5,                      // WAIT TILL SHOT
+    PAUSE,0.1,                          // SHORT PAUSE
+    STOP_FIRE,                          // STOP FLYWHEEL
+    
+    DRIVE,127,CDIR,DISTANCE,0.7,2,      // DRIVE TO TOP FLAG DIST
+    FIRE_AIM,TOP,                       // SHOOT TOP FLAG                           MIDDLE MIDDLE FLAG
+    PAUSE,FIRED,5,                      // WAIT TILL SHOT
+    PAUSE,0.1,                          // SHORT PAUSE
+    STOP_FIRE,                          // STOP FLYWHEEL
+    
+    INTAKE_OFF,                         // TURN INTAKE OFF
+    DRIVE,127,0,0.5,                    // DRIVE TO TOGGLE BOTTOM FLAG              BOTTOM MIDDLE FLAG
+    SCRAPER,SCRAPER_DOWN_POS,           // LOWER SCRAPER SO IT DOESN'T CATCH THE FLAG
+    DRIVE,-127,0,0.25,                  // DRIVE AWAY FROM FLAG
+    INTAKE_ON,                          // TURN INTAKE BACK ON
+    SCRAPER,SCRAPER_UP_POS,             // RAISE SCRAPER AGAIN
+    
+    TURN,0,2,                           // TURN TO LINE UP
+    DRIVE,-127,0,DISTANCE,0.5,1,        // DRIVE TO LINE UP WITH NEXT CAP
+    
+    FLIPSEEK,FLIP_POS1,                 // PUT FLIPPER CORRECT WAY UP
+    TURN,90,0,                          // TURN TO FACE NEXT CAP
+    WRISTSEEK,WRIST_FORWARD_POS,        // LOWER FLIPPER
+    DRIVE,-127,90,WHITE_E,1,            // DRIVE ACOSS CENTER WHITE LINE
+    DRIVE,-90,90,DISTANCE,2.5,2,        // DRIVE TO GET NEXT CAP (SLOWLY)
+    
+    WRISTSEEK,WRIST_VERTICAL_POS,       // LIFT CAP
+    PAUSE,0.25,                         // PAUSE TO LIFT
+    DRIVE,127,90,DISTANCE,0.1,1,        // DRIVE AWAY FROM WALL
+    FLIP,                               // FLIP CAP
+    TURN,160,2,                         // TURN TO FACE PLATFORM
+    WRISTSEEK,WRIST_FORWARD_POS,        // DROP CAP                                 FLIP CAP 6
+    DRIVE,127,160,DISTANCE,1.5,2,       // DRIVE TO PLATFORM
+    
+    SCRAPER,SCRAPER_DOWN_POS,           // LOWER SCRAPER
+    WRISTSEEK,WRIST_VERTICAL_POS,       // LIFT FLIPPER
+    FLIPSEEK,FLIP_POS1,                 // REVERT FLIPPER
+    PAUSE,0.5,
+    DRIVE,-127,160,DISTANCE,0.5,1,      // DRIVE AWAY FROM PLATFORM
+    PAUSE,0.5,
+    
+    TURN,90,2,                          // TURN TO FACE NEXT CAP
+    SCRAPER,SCRAPER_DOWN_POS-10,        // MOVE SCRAPER TO CAP FLIP POSITION
+    DRIVE,127,90,DISTANCE,1.25,2,       // DRIVE TO FLIP CAP                        FLIP CAP 7
+    PAUSE,0.25,
+    DRIVE,-127,90,DISTANCE,1.25,2,      // DRIVE TO LINE UP FOR FLAGS
+    
+    TURN,0,2,                           // TURN TO FACE FLAGS
+    SCRAPER,SCRAPER_UP_POS,             // LIFT SCRAPER TO SAFETY
+    DRIVE,127,0,DISTANCE,0.1,1,         // DRIVE TO CORRECT RANGE
+    
+    FIRE_AIM,TOP,                       // SHOOT TOP FLAG                           TOP RIGHT FLAG
+    PAUSE,FIRED,5,                      // WAIT TILL SHOT
+    PAUSE,0.1,                          // SHORT PAUSE
+    STOP_FIRE,                          // STOP FLYWHEEL
+    
+    DRIVE,127,CDIR,DISTANCE,0.9,2,      // DRIVE TO TOP FLAG DIST
+    FIRE_AIM,TOP,                       // SHOOT TOP FLAG                           MIDDLE RIGHT FLAG
+    PAUSE,FIRED,5,                      // WAIT TILL SHOT
+    PAUSE,0.1,                          // SHORT PAUSE
+    STOP_FIRE,                          // STOP FLYWHEEL
+    
+    INTAKE_OFF,                         // TURN INTAKE OFF
+    DRIVE,127,0,0.5,                    // DRIVE TO TOGGLE BOTTOM FLAG              BOTTOM RIGHT FLAG
+    SCRAPER,SCRAPER_DOWN_POS,           // LOWER SCRAPER SO IT DOESN'T CATCH THE FLAG
+    DRIVE,-127,0,0.25,                  // DRIVE AWAY FROM FLAG
+    INTAKE_ON,                          // TURN INTAKE BACK ON
+    SCRAPER,SCRAPER_UP_POS,             // RAISE SCRAPER AGAIN
+    
+    TURN,0,2,                           // TURN TO LINE UP
+    
+    
+    END
+};
+
+
+
+
+
+
+
+
+
+
+double gyroDirection = 0;               // Direction from the gyro
+bool hasInitialised = false;            // Have we initialised the bot
 
 // Declare and initialize any global flags we need:
 // Control mode
@@ -213,56 +411,63 @@ double* autonCommand = &defaultAuton[0];    // default auto routine
 bool nextCommand = true;
 
 // For Flywheel
-int autoFireState = -1;         // -1 for neutral, 1 for 'aim&spin&fire', 2 for 'spin & fire', 3 for 'fire!'
+int autoFireState = -1;         // -1 for neutral, 1 for 'aim & spin & fire', 2 for 'spin & fire', 3 for 'fire!'
 int targetFlag = 1;             // 1 for low, 2 for high, 3 for high then low
 
 // For Intake
-bool forceIntake = false;
+bool forceIntake = false;       // Do we want to force the intake to run at a speed
 double intakeSpeedOuter = 0;    // speed for outer intake
 double intakeSpeedInner = 0;    // speed for inner intake
 int runTillBall = 0;            // 0 = nothing, 1 = run till 1 ball in, 2 = run for two balls
 
 // For cap mechanisms
+// Where we want each mechanism to seek to, -1 = don't seek
 double armSeek = -1;
 double wristSeek = -1;
 double flipperSeek = -1;
+double scraperSeek = -1;
 
+// Where each mechanism thinks it's at
 double armPos = 0;
 double flipperPos = 0;
 double wristPos = 0;
+double scraperPos = 0;
 
+// Offset values to tare position without taring motors
 double armOffset = 0;
 double flipperOffset = 0;
 double wristOffset = 0;
+double scraperOffset = 0;
 
-int stackTarget = -1;
-int stackStep = -1;
-double lastAutonTime = 0;
+int stackTarget = -1;           // Target pole to stack on (high or low)
+int stackStep = -1;             // Step to do in the auto stack miniroutine
+double lastAutonTime = 0;       // How long autonomous mode took last run
+
+
+#define FLYWHEEL_SPEED_RANGE 15             // fire ball when within x rpm of target speed
+#define flywheelSlowSpeed 50                // Speed to run flywheel when too fast
+#define flywheelFastSpeed 127               // Speed to run flywheel when too slow
+
+double flywheelRunSpeed = 0;            // How fast should the flywheel run
+double flyWheelDefaultSpeed = 450;      // Set speed for fixed-dist fireing
+bool coast = false;                     // Should the flywheel continue to run when not firing
+double defaultFlywheelDistance = 1;     // Default distance for the flywheel if sonar not working
+bool flipCapWIntake = false;            // Should we run the intake backwards to flip a cap
 
 // Array for flywheel speed lookup'
 // Distance (tiles), low flag speed (rpm), high flag speed (rpm)
 // For each distance we record flywheel speeds needed for hitting high/low flags
-
-#define FLYWHEEL_SPEED_RANGE 15          // fire ball when within x rpm of target speed
-#define flywheelSlowSpeed 50
-#define flywheelFastSpeed 127
-
-double flywheelRunSpeed = 0;
-double flyWheelDefaultSpeed = 450;    // set speed for fixed-dist fireing
-bool coast = false;
-double defaultFlywheelDistance = 1;
-bool flipCapWIntake = false;
-
 double flyWheelSpeeds[12][3] = {                 // CALIBRATE & add more
     // Dist, Low Flag Speed, High Flag Speed
     {-100,  0,  0},   // to catch errors
     {0,     0,  0},
     {1,     450,  450},
 };
-int flyWheelSpeedsDefinition = 12;   // number of entries
-double autoFireTimeout = -1;
+int flyWheelSpeedsDefinition = 12;      // Number of entries in speed table
+double autoFireTimeout = -1;            // If positive, how long to try to fire before giving up
 
 
+// Function to set arm position
 void setArmPos(double pos) {
     // set all motor encoders to 0
     arm_1.tare_position();
@@ -271,6 +476,7 @@ void setArmPos(double pos) {
     armOffset = pos;
     armPos = pos;
 }
+// Function to set flipper position
 void setFlipperPos(double pos) {
     // set all motor encoders to 0
     flip.tare_position();
@@ -278,6 +484,7 @@ void setFlipperPos(double pos) {
     flipperOffset = pos;
     flipperPos = pos;
 }
+// Function to set wrist position
 void setWristPos(double pos) {
     // set all motor encoders to 0
     wrist.tare_position();
@@ -285,12 +492,20 @@ void setWristPos(double pos) {
     wristOffset = pos;
     wristPos = pos;
 }
+// Function to set wrist position
+void setScraperPos(double pos) {
+    // set all motor encoders to 0
+    scraper.tare_position();
+    // set position
+    scraperOffset = pos;
+    scraperPos = pos;
+}
 
 
 void initAll() {        // called when robot activates & start of auton
     if (!hasInitialised) {
         // First time / manual init...
-        // eg. calibrate gyro
+        // Calibrate gyro, tare motors, start tasks
         controller.print(0,0,"Calibrating");
         sensor_gyro = ADIGyro(1, GYRO_PORT);
         arm_1.tare_position();
@@ -314,12 +529,12 @@ void initAll() {        // called when robot activates & start of auton
     }
     hasInitialised = true;
     // Every time init...
-    // eg. tare arm position
+    // Set camera zero pos & exposure
     camera.set_zero_point(pros::E_VISION_ZERO_CENTER);
     camera.set_exposure(83);
 }
 
-
+// Increments autonomous routine pointer & returns next command
 double processEntry() {
     autonCommand++;
     return *autonCommand;
@@ -327,7 +542,7 @@ double processEntry() {
 
 
 //////////////////////////////////////////////////////////////////////////////////
-// Serial Stuff (To move into own file)
+// Serial Stuff
 //
 
 // Include sstream for serial parsing
@@ -340,7 +555,7 @@ extern "C" void vexGenericSerialEnable(  uint32_t index, uint32_t nu );
 extern "C" void vexGenericSerialBaudrate(  uint32_t index, uint32_t rate );
 
 // Port to use for serial data
-#define SERIALPORT 15           // Port 15
+#define SERIALPORT 14           // Port 15
 // Variable to put the gyro value into
 double gyroValue = 0;
 
@@ -416,14 +631,15 @@ void serialRead(void* params) {
 
 
 //////////////////////////////////////////////////////////////////////////////////
-// Gyro Stuff (To move into own file)
+// Gyro Stuff
 // gyroDirection will be updated with 'more accurate' gyro value
+// Built for additional gyro, but we only use 1
 gyros gyro1,gyro2;
 
 short gyroinit=0;
 
-void resetGyro()
-{
+// Function to reset the gyros
+void resetGyro() {
     sensor_gyro.reset();
     gyro1.truedir=0;
     gyro2.truedir=0;
@@ -432,59 +648,47 @@ void resetGyro()
     gyroDirection=0;
 }
 
-void setGyro(double dir)
-{
+// Function to set the gyros to a value
+void setGyro(double dir) {
     gyro1.truedir=dir;
     gyro2.truedir=dir;
-    //    gyro1.last=dir;
-    //    gyro2.last=dir;
     gyroDirection=dir;
 }
 
-void checkGyro(gyros *gyro)
-{
-    float currentGyro;                                         //gyro position
-    float tempAngle;                                            //temporary angle variable
+void checkGyro(gyros *gyro) {
+    float currentGyro;                                  // Gyro position
+    float tempAngle;                                    // Temporary angle variable
     
     
 #ifdef USE_SERIAL_GYRO
-    currentGyro = gyroValue*10;        // Read hardware gyro value from serial
+    currentGyro = gyroValue*10;                         // Read hardware gyro value from serial
 #else
-    currentGyro = sensor_gyro.get_value();    // Read hardware gyro value from analog
+    currentGyro = sensor_gyro.get_value();              // Read hardware gyro value from analog
 #endif
     
-    tempAngle=currentGyro-gyro->last;            //what is the delta change in the gyro this loop?
+    tempAngle=currentGyro-gyro->last;                   // What is the delta change in the gyro this loop?
     tempAngle=-tempAngle;
-    gyro->last=currentGyro;                                //store current gyro value for comparison next time
+    gyro->last=currentGyro;                             // Store current gyro value for comparison next time
     
-    if (abs(tempAngle)>2500)                //huge delta so probably wrapped
-    {
-        if (tempAngle>0) {tempAngle=tempAngle-3600;}    //get true delta change taking...
-        else {tempAngle=tempAngle+3600;}                //...into account wrap
+    if (abs(tempAngle)>2500) {                          // Huge delta so probably wrapped
+        if (tempAngle>0) {tempAngle=tempAngle-3600;}    // Get true delta change taking...
+        else {tempAngle=tempAngle+3600;}                // ...into account wrap
     }
-    //tempAngle now holds correct delta change between old and new gyro angles
+    // tempAngle now holds correct delta change between old and new gyro angles
     
-    //        if (abs(ang2)<JITTER) {SensorValue[gyro]=lastgyro;}    //tiny delta change so overwrite hardware gyro with lastgyro (removes jitter)
-    //        else
-    
-    //        if (abs(ang2)>JITTER)
-    if (tempAngle>0)    //anti-clockwise rotation
-    {
-        gyro->truedir=gyro->truedir+(tempAngle*gyro->ascale);                    //update ?tempDir? if anti-clockwise rotation and scale by Anti-Clockwise scale
-        if (gyro->truedir<0) {gyro->truedir=gyro->truedir+3600;}        //wrap
+    if (tempAngle>0) {  // Anti-clockwise rotation
+        gyro->truedir=gyro->truedir+(tempAngle*gyro->ascale);           // Multiply difference by correction value
+        if (gyro->truedir<0) {gyro->truedir=gyro->truedir+3600;}        // Wrap
     }
-    else
-    {
-        gyro->truedir=gyro->truedir+(tempAngle*gyro->cscale);                    //update ?tempDir? if clockwise rotation and scale by Clockwise scale
-        if (gyro->truedir>=3600) {gyro->truedir=gyro->truedir-3600;}    //wrap
+    else {
+        gyro->truedir=gyro->truedir+(tempAngle*gyro->cscale);           // Multiply difference by correction value
+        if (gyro->truedir>=3600) {gyro->truedir=gyro->truedir-3600;}    // Wrap
     }
-    //truedir ends up as positive float >=0 and <3600 to be used in rest of code
+    // truedir ends up as positive float >=0 and <3600 to be used in rest of code
 }
 
-void run_gyro(void* params)
-{
-    if (gyroinit==0)
-    {
+void run_gyro(void* params) {
+    if (gyroinit==0) {
         gyroinit=1;
         
         gyro1.port=GYRO_PORT;
@@ -493,7 +697,7 @@ void run_gyro(void* params)
         gyro1.ascale=ASCALE;
         gyro1.cscale=CSCALE;
         
-        gyro2.port=GYRO_PORT;//////SHOULD BE GYROB
+        gyro2.port=GYRO_PORT;   // If using two gyros, this would be the port of the second gyro
         gyro2.truedir=0;
         gyro2.last=sensor_gyro.get_value();
         gyro2.ascale=ASCALE;
@@ -502,36 +706,30 @@ void run_gyro(void* params)
         gyroDirection=0;
     }
     
-    while(true)
-    {
+    while(true) {
         checkGyro(&gyro1);
         checkGyro(&gyro2);
         
-        //        gyroDirection=gyro1.truedir;
         
-        //find average of the two angles
-        if (gyro1.truedir>gyro2.truedir)
-        {
+        if (gyro1.truedir>gyro2.truedir) {      // Check if gyro1 is larger
             float tempAngle=gyro1.truedir;
             gyro1.truedir=gyro2.truedir;
-            gyro2.truedir=tempAngle;            //swap order so that gyro2 always larger
+            gyro2.truedir=tempAngle;            // Swap order so that gyro2 always larger
         }
-        if (gyro2.truedir-gyro1.truedir>1800) gyro2.truedir-=3600;    //big difference so fix wrap
-        gyroDirection=(gyro2.truedir+gyro1.truedir)/2;        //average them
-        if (gyroDirection<0) gyroDirection+=3600;        //unwrap negative case
+        if (gyro2.truedir-gyro1.truedir>1800) gyro2.truedir-=3600;      // Big difference so fix wrap
+        gyroDirection=(gyro2.truedir+gyro1.truedir)/2;                  // Average the gyros
+        if (gyroDirection<0) gyroDirection+=3600;                       // Unwrap negative case
         pros::delay(20);
     }
 }
-//////////////////////////////////////////////////////////////////////////////////
-// End of gyro stuff
-//
 
+
+// Functions to get average values of drive encoders
 double getLeftEnc() {
     return ( drive_left_1.get_position()
             + drive_left_2.get_position()
             + drive_left_3.get_position() ) / 3;
 }
-
 double getRightEnc() {
     return ( drive_right_1.get_position()
             + drive_right_2.get_position()
@@ -542,6 +740,7 @@ double getRightEnc() {
 ////////////////////////////////////////////////////////////////////////////
 // Drive auton functions
 //
+// Stop driving
 void driveStop() {
     autoTime = 0;
     autoMode = DRIVEMODE_USER;
@@ -550,6 +749,7 @@ void driveStop() {
     drivingToPos = false;
 }
 
+// Drive for a time
 void driveTime(double s, double d, double t) {
     // speed, direction, distance, time
     autoSpeed = s;
@@ -559,6 +759,7 @@ void driveTime(double s, double d, double t) {
     recordedTime = pros::millis();
 }
 
+// Drive for a distrance
 void driveDist(double s, double dir, double dist, double t = 10) {
     // speed, direction, distance, timeout
     autoSpeed = s;
@@ -570,6 +771,7 @@ void driveDist(double s, double dir, double dist, double t = 10) {
     recordedDistRight = getRightEnc();
     usingSonarDist = false;
     
+    // Check which direction we are driving & set target accordingly
     if (s > 0) {
         targetDistance = (dist * ticksPerTile) + (recordedDistRight + recordedDistLeft)/2;
     }
@@ -578,6 +780,7 @@ void driveDist(double s, double dir, double dist, double t = 10) {
     }
 }
 
+// Drive to a sonar value
 void driveDistSonar(double s, double dir, double dist, double t = 10) {
     // speed, direction, distance, timeout
     autoSpeed = s;
@@ -591,6 +794,7 @@ void driveDistSonar(double s, double dir, double dist, double t = 10) {
     targetDistance = dist * cmPerTile;
 }
 
+// Drive until told to stop
 void driveCustom(double s, double d, double t = 10) {
     // speed, direction, timeout
     recordedTime = pros::millis();
@@ -600,6 +804,7 @@ void driveCustom(double s, double d, double t = 10) {
     targetDirection = d;
 }
 
+// Turn to face angle
 void turnTo(double a, double t = -1) {
     // angle, timeout
     recordedTime = pros::millis();
@@ -609,6 +814,7 @@ void turnTo(double a, double t = -1) {
     turnMode = TURNMODE_GYRO;
 }
 
+// Turn relative to current direction
 void turnRelative(double a, double t = -1) {
     // angle, timeout
     recordedTime = pros::millis();
@@ -618,6 +824,7 @@ void turnRelative(double a, double t = -1) {
     turnMode = TURNMODE_GYRO;
 }
 
+// Turn using encoders
 void turnRelativeEncoder(double a, double t = -1) {
     // angle, timeout
     recordedTime = pros::millis();
@@ -635,18 +842,18 @@ void turnRelativeEncoder(double a, double t = -1) {
 // Position Tracking stuff
 //
 
+// Set position of robot
 void setPosition(double x, double y, double d) {
     xPosition = x;
-    // lastRightEnc = getRightEnc();
     yPosition = y;
-    // lastLeftEnc = getLeftEnc();
     trackingDirection = d;
 }
 
+// Function to update the estimate position
 void trackPosition() {
-    double leftEnc = getLeftEnc();      // get encoder values from motors
+    double leftEnc = getLeftEnc();                  // Get encoder values from motors
     double rightEnc = getRightEnc();
-    double leftDiff = leftEnc - lastLeftEnc;   // Find encoder changes
+    double leftDiff = leftEnc - lastLeftEnc;        // Find encoder changes
     double rightDiff = rightEnc- lastRightEnc;
     
     double angleChange = (rightDiff - leftDiff)/2;  // Find angle change
@@ -655,42 +862,45 @@ void trackPosition() {
     double distChange = (leftDiff + rightDiff)/2;   // Find lin. dist change
     distChange /= trackingTicksPerTile;
     
-    trackingDirection += angleChange;   // Find cumulative direction
+    trackingDirection += angleChange;               // Find cumulative direction
     
-    if (trackWithGyro) {        // If we are using gyro, then ignore encoder direction stuff
+    if (trackWithGyro) {                            // If we are using gyro, then ignore encoder direction
         trackingDirection = gyroDirection / 10;
     }
     
-    xPosition += distChange * cos(trackingDirection * M_PI / 180);  // find cumulative xPos
-    yPosition -= distChange * sin(trackingDirection * M_PI / 180);  // find cumulative yPoS
+    xPosition += distChange * cos(trackingDirection * M_PI / 180);  // Find cumulative xPos
+    yPosition -= distChange * sin(trackingDirection * M_PI / 180);  // Find cumulative yPoS
     
-    lastLeftEnc = leftEnc;  // remember last values for next comparison
+    lastLeftEnc = leftEnc;                          // Remember last values for next comparison
     lastRightEnc = rightEnc;
 }
 
+// Funcion to turn to face a point
 void turnToPoint(double x, double y, double t = -1) {
-    double dx = x - xPosition;
+    double dx = x - xPosition;      // Find delta x,y
     double dy = y - yPosition;
     if (dx == 0) dx = 0.0000000001;
-    double dir = atan(abs(dy/dx)) * 180 / M_PI;
-    if (dx > 0 && dy > 0) dir = 360 - dir;
+    double dir = atan(abs(dy/dx)) * 180 / M_PI; // Calculate direction from this
+    if (dx > 0 && dy > 0) dir = 360 - dir;      // Find which quadrant we need
     if (dx < 0 && dy > 0) dir += 180;
     if (dx < 0 && dy < 0) dir += 90;
     if (dx > 0 && dy < 0) dir = dir;
-//    std::cout << "Turn dir = " << dir << std::endl;
-    turnTo(dir);
+    turnTo(dir);                                // Turn to that direction
 }
 void driveTo(double s, double x, double y, double t = 10) {
     targetX = x;
     targetY = y;
     targetS = s;
-    double dx = x - xPosition;
+    double dx = x - xPosition;                  // Find delta x,y
     double dy = y - yPosition;
-    double dir = atan(abs(dy/dx)) * 180 / M_PI;
-    if (dy < 0) dir = 360 - dir;
-    double dist = hypot(x,y);
-    driveDist(s, dir, dist, t);
-    drivingToPos = true;
+    double dir = atan(abs(dy/dx)) * 180 / M_PI; // Find direction
+    if (dx > 0 && dy > 0) dir = 360 - dir;      // Find which quadrant we need
+    if (dx < 0 && dy > 0) dir += 180;
+    if (dx < 0 && dy < 0) dir += 90;
+    if (dx > 0 && dy < 0) dir = dir;
+    double dist = hypot(x,y);                   // Find distance
+    driveDist(s, dir, dist, t);                 // Drive to that distance
+    drivingToPos = true;                        // We are driving to position, so this sould be true
 }
 
 
@@ -701,76 +911,79 @@ void driveTo(double s, double x, double y, double t = 10) {
 
 void run_drive(void* params) {
     
-    double currentTime = 0;
-    double leftPower = 0;
+    double currentTime = 0;     // Var to store current time
+    double leftPower = 0;       // How much power to each side
     double rightPower = 0;
-    double leftSpeed = 0;
+    double leftSpeed = 0;       // How fast to run each side
     double rightSpeed = 0;
     
-    double lastAngle = 0;
-    double turnPulse = 0;
+    double lastAngle = 0;       // Angle we were facing
+    double turnPulse = 0;       // Track the state of pulsing
     
-    double slewRate = 2;
+    double slewRate = 2;        // How much dampening on the drive
     
-    int turnGoodCount = 0;
+    int turnGoodCount = 0;      // How long have we been facing the correct angle
     
     while (true) {
         
-        trackPosition();        // keep track of where we are on the field        // CHANGE
+        trackPosition();        // Keep track of where we are on the field
         
-        if (usingGyro) {
+        if (usingGyro) {        // If we are using the gyro, set direction
             direction = gyroDirection / 10;  // gyroDirection is updated by gyro code, direction is used by drive code
         }
-        else {
+        else {  // Future proofing
             // maybe using compass/encoders?
             // direction = compassDirection
         }
         
         // This is where the fun begins
         
-        double forward = 0;
-        double turn = 0;
+        double forward = 0;     // Forward/backward speed of the bot
+        double turn = 0;        // Turn speed of bot
         
         // Calculate useful information
-        currentTime = pros::millis();           // current time to determine if timed out
+        currentTime = pros::millis();           // Find current time to determine if timed out
         
-        // find where encoders are right now
-        double currentDistLeft = getLeftEnc();
+        double currentDistLeft = getLeftEnc();  // Find encoder values of drive
         double currentDistRight = getRightEnc();
-        currentDist = (currentDistRight + currentDistLeft)/2;
+        currentDist = (currentDistRight + currentDistLeft)/2;   // Average these to find current distance
         
-        if (controller.get_digital(BTN_ABORT)) {    // if user wants to abort, stop auton move
+        // Check controller
+        if (controller.get_digital(BTN_ABORT)) {    // If user wants to abort, stop auton move
             autoMode = DRIVEMODE_USER;
         }
         
-        // auto functions
+        // Auto functions
         if (autoMode != DRIVEMODE_USER) {   // If auton is asking for drive to move
             
             
-            if (drivingToPos) {         // keep calculating new angle & distance to stay on-target
-                // Must write position tracking algorythm first
+            if (drivingToPos) {         // Keep calculating new angle & distance to stay on-target
                 driveTo(targetS, targetX, targetY);
             }
             
             forward = autoSpeed;        // autoSpeed is speed asked for, forward will be sent to drive motors
             
-            if (autoMode == DRIVEMODE_TURN)  {  // if we are only turning, make translational speed 0
-                // controller values will be 0 in auton, but we still want translation while aiming
+            if (autoMode == DRIVEMODE_TURN)  {  // If we are only turning, make translational speed 0
+                // Controller values will be 0 in auton, but we still want translation while aiming
                 forward = (controller.get_analog(ANALOG_LEFT_Y) + controller.get_analog(ANALOG_RIGHT_Y));
                 autoSpeed = 0;
             }
             
+            // If we are driving a distance
             if (autoMode == DRIVEMODE_DIST) {   // If auto move should end with a distance
+                // We want to slow down when approaching desired position to avoid overshoot
                 double slowDown = abs((targetDistance - currentDist) / (0.35 * ticksPerTile));
                 
-                if (slowDown > 1) slowDown = 1;
+                if (slowDown > 1) slowDown = 1;     // Don't want to speed up before then
                 
-                forward *= slowDown;
+                forward *= slowDown;                // Apply slow down speed
                 
+                // Clamp speed above minimum threshold
                 if (autoSpeed > 0 && forward < minForward) forward = minForward;
                 if (autoSpeed < 0 && forward > -minForward) forward = -minForward;
                 
-                if (forward > 127) forward = 127;   // Cap max and min speed
+                // Cap max and min speed
+                if (forward > 127) forward = 127;
                 if (forward < -127) forward = -127;
                 
                 // Terminate contition for distance
@@ -782,20 +995,25 @@ void run_drive(void* params) {
                 }
             }
             
+            // If we are driving to a sonar range
             if (autoMode == DRIVEMODE_SONAR) {
-                currentDist = sonar.get_value();    // current dist is form sonar, not encoders
+                currentDist = sonar.get_value();    // Current dist is form sonar, not encoders
+                
+                // We want to slow down when approaching desired position to avoid overshoot
                 double slowDown = abs((targetDistance - currentDist) / (0.35 * cmPerTile));
-
-                if (slowDown > 1) slowDown = 1;
-
-                forward *= slowDown;
-
+                
+                if (slowDown > 1) slowDown = 1;     // Don't want to speed up before then
+                
+                forward *= slowDown;                // Apply slow down speed
+                
+                // Clamp speed above minimum threshold
                 if (autoSpeed > 0 && forward < minForward) forward = minForward;
                 if (autoSpeed < 0 && forward > -minForward) forward = -minForward;
-
-                if (forward > 127) forward = 127;   // Cap max and min speed
+                
+                // Cap max and min speed
+                if (forward > 127) forward = 127;
                 if (forward < -127) forward = -127;
-
+                
                 // Terminate contition for distance
                 if (autoSpeed > 0) {
                     if (currentDist < targetDistance) autonComplete = true;
@@ -805,37 +1023,46 @@ void run_drive(void* params) {
                 }
             }
             
-            if (currentTime > autoTimeOut + recordedTime && autoTimeOut > 0) {     // If auton move has timed out, stop driving
+            // If auton move has timed out, stop driving
+            if (currentTime > autoTimeOut + recordedTime && autoTimeOut > 0) {
                 autonComplete = true;
                 std::cout << "Time Out - ";
             }
             
             // Turn code
-            double driveMag = abs(autoSpeed);
-            double seek = targetDirection;
-            double angle = 0;
+            double driveMag = abs(autoSpeed);       // How strong to drive
+            double seek = targetDirection;          // Direction we want to face
+            double angle = 0;                       // Var to store error and then power
             
-            if (turnMode == TURNMODE_GYRO) {
-                angle = seek - direction;
+            if (turnMode == TURNMODE_GYRO) {        // If we are turning based on gyro
+                angle = seek - direction;           // Angle is error (where we want to be) - (where we are)
             }
-            else if (turnMode == TURNMODE_ENCODER) {
+            else if (turnMode == TURNMODE_ENCODER) {    // If we are turning based on encoder
+                // Calculate angle based on difference between left and right encoder values
                 angle = (recordedDistRight - recordedDistLeft)/2;
                 angle -= (currentDistRight - currentDistLeft)/2;
                 angle /= ticksPerDegree;
             }
             
+            // Clamp angle to +/- 180 so bot always turns smaller angle
             if (angle < 0) angle += 360;
             if (angle > 180) angle -= 360;
             
+            // Scale by turnRate to allow tuning
             angle /= (2 * turnRate);
             angle *= 127;
+            
+            // If we are driving slowly, then turning should be stronger to help us stay on course
             if (driveMag < minSpeed) {
                 angle *= 2;
             }
             
+            // Cap turn power at maximum threshold
             if (angle < -maxTurn) angle = maxTurn;
             if (angle > maxTurn) angle = maxTurn;
             
+            // If we are driving faster than minSpeed, do some clamping when angle is small
+            // This helps when driving fast in a straight line
             if (driveMag > minSpeed) {
                 if (angle < 0) {
                     if (angle > -2) {
@@ -854,68 +1081,75 @@ void run_drive(void* params) {
                     }
                 }
             }
-            else {
-                turn = angle;
-                angle = abs(angle);
-                if (angle < minSpeed) {
+            else {                  // If we are below minSpeed
+                turn = angle;       // Remember angle in turn
+                angle = abs(angle); // Find absolute angle
+                if (angle < minSpeed) { // If angle is small
+                    // If we have crossed from - to + or + to -, then stop since we are at destination
                     if (((lastAngle > 0) && (turn < 0)) || ((lastAngle < 0) && (turn > 0))) {
                         angle = 0;
                     }
                     else {
-                        if (angle > minSpeed/5) {
+                        if (angle > minSpeed/5) {   // If angle is between minSpeed and minSpeed/5, make it minSpeed
                             angle = minSpeed;
                         }
-                        else {
-                            turnPulse++;
-                            if (turnPulse < pulseTime) {
-                                angle = minSpeed;
+                        else {                      // If angle < minSpeed / 5
+                            turnPulse++;                    // Increment turnPulse
+                            if (turnPulse < pulseTime) {    // If bot should be pulsing
+                                angle = minSpeed;               // Set angle = minSpeed
                             }
-                            else {
-                                angle = 1;
-                                if (turnPulse > pulsePause) {
+                            else {                          // Otherwise
+                                angle = 1;                      // Make angle small
+                                if (turnPulse > pulsePause) {   // Check if we've waited long enough between pulses
                                     turnPulse = 0;
                                 }
                             }
                         }
                     }
                 }
-                if (turn < 0) angle *= -1;
+                if (turn < 0) angle *= -1;      // Un-abs(angle)
             }
             
-            turn = angle;
+            turn = angle;       // Set turn power to angle
             
+            // If we are turning with no drive
             if (autoSpeed == 0 || (autoMode == DRIVEMODE_TURN && forward != 0)) {
+                // If we are within our accepted error
                 if (abs(direction - targetDirection) < turnAccepted) {
-                    turnGoodCount++;
-                    if (turnGoodCount > 3)
-                        autonComplete = true;
+                    turnGoodCount++;            // Count this as a good sample
+                    if (turnGoodCount > 10)     // Check if we've had 10 good samples
+                        autonComplete = true;   // If we have, then we are done with the turn
                 }
                 else {
-                    turnGoodCount = 0;
+                    turnGoodCount = 0;      // If we are not within accepted value, reset count
                 }
             }
             
-            lastAngle = angle;
+            lastAngle = angle;      // Remember last angle for next loop
             
         }
+        
+        
         // Auto-move is complete, so stop moving
         if (autonComplete && autoFireState == -1) {
-            autonComplete = false;
-            autoMode = DRIVEMODE_USER;
-            forward = 0;
+            // We want to stop moving so set appropriate flags
+            autonComplete = false;          // Reset 'stop' flag
+            autoMode = DRIVEMODE_USER;      // Give control back to user
+            forward = 0;                    // Set power back to 0
             turn = 0;
             autoSpeed = 0;
-            drivingToPos = false;
-            nextCommand = true;
+            drivingToPos = false;           // Stop driving to a position
+            nextCommand = true;             // Let the next auton command start
             std::cout << "Drive Move Done: " << currentTime << std::endl;
         }
         
         // User controls
         if (autoMode == DRIVEMODE_USER) {
             
+            // We use the same code for each bot, so differentiate by whick autonomous routine the bot is runnning
             if (autonSelect == REDAUTON || autonSelect == BLUEAUTON || autonSelect == SKILLSAUTON) {
                 // Tank Controls For Sam
-                if (controlMode == FLYWHEEL) {
+                if (controlMode == FLYWHEEL) {  // Each control mode has a different front/back of the robot
                     leftSpeed = controller.get_analog(ANALOG_LEFT_Y);
                     rightSpeed = controller.get_analog(ANALOG_RIGHT_Y);
                 }
@@ -925,8 +1159,8 @@ void run_drive(void* params) {
                 }
             }
             else {
-                // Arcade Controls For Trash People
-                if (controlMode == FLYWHEEL) {
+                // Arcade Controls For RJ/Ramon
+                if (controlMode == FLYWHEEL) {  // Each control mode has a different front/back of the robot
                     leftSpeed = controller.get_analog(ANALOG_LEFT_Y) + controller.get_analog(ANALOG_RIGHT_X);
                     rightSpeed = controller.get_analog(ANALOG_LEFT_Y) - controller.get_analog(ANALOG_RIGHT_X);
                 }
@@ -936,27 +1170,28 @@ void run_drive(void* params) {
                 }
             }
             
+            // Check if the joystick input is below deadzone, and set to zero
             if (abs(leftSpeed) < deadZone) leftSpeed = 0;
             if (abs(rightSpeed) < deadZone) rightSpeed = 0;
         }
         else {
+            // If not user controls, turn the autonomous powers into left & right power levels
             leftSpeed = forward - turn;
             rightSpeed = forward + turn;
         }
         
-        // Constant-speed override
+        // If we want to override with a constant speed, do so
         if (speedOverride) {
             leftSpeed = leftRunSpeed;
             rightSpeed = rightRunSpeed;
         }
         
-        // dampen motors so they don't spike current
+        // Dampen motors so they don't spike current
         rightPower = rightPower + ( (rightSpeed - rightPower) / slewRate );
         leftPower = leftPower + ( (leftSpeed - leftPower) / slewRate );
         
-        // std::cout << "gyro: " << gyroDirection << std::endl;
         
-        // Send speeds to drive motors
+        // Send powers to drive motors
         drive_left_1.move_voltage(leftPower * 12000 / 127);
         drive_left_2.move_voltage(leftPower * 12000 / 127);
         drive_left_3.move_voltage(leftPower * 12000 / 127);
@@ -964,7 +1199,7 @@ void run_drive(void* params) {
         drive_right_2.move_voltage(rightPower * 12000 / 127);
         drive_right_3.move_voltage(rightPower * 12000 / 127);
         
-        pros::delay(10);   // don't hog cpu
+        pros::delay(10);   // Don't hog cpu
     }
 }
 
@@ -973,19 +1208,23 @@ void run_drive(void* params) {
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Flywheel
-// Read flywheel motors to get its speed
 //
+
+// Get speed of flywheel
 double getFlywheelSpeed() {
     return (flywheel_1.get_actual_velocity() + flywheel_2.get_actual_velocity() ) / 2;
 }
-// Read serial input for IR sensors and Lidar distance - NEEDS IMPLEMENTATION
+// Get inner IR value
 bool getInnerSensor() {
     return upper_IR.get_value();
 }
+// Get outer IR value
 bool getOuterSensor() {
     return lower_IR.get_value();
 }
+// Get distance from flags
 double getDistance() {
+    // Sonar not implemented, so return default distance
     return defaultFlywheelDistance;
 }
 
@@ -1085,8 +1324,12 @@ void run_flywheel(void* params) {
     bool doSet = false;
     int lastBlinkTime = millis();
     double lastIntakeSpeed = 0;
+    bool justToggledScraper = false;
     
     while (true) {
+        
+        double scraperSpeed = 0;
+        scraperPos = scraper.get_position() + scraperOffset;
         
         // Set intake motor speeds to 0
         if (!forceIntake) {
@@ -1244,12 +1487,28 @@ void run_flywheel(void* params) {
         else {
             ballLight.set_value(1);
         }
-
+        
         
         // Check controller buttons...
         // Set flags for preset flywheel speeds & auto-aim-fire
         // If manual intake buttons pressed, override intake speeds
         if (controlMode == FLYWHEEL) {
+            
+            // Toggle button for scraper
+            if (controller.get_digital(BTN_TOGGLE_SCRAPER)) {
+                if (!justToggledScraper) {
+                    if (scraperSeek == SCRAPER_UP_POS)
+                        scraperSeek = SCRAPER_DOWN_POS;
+                    else
+                        scraperSeek = SCRAPER_UP_POS;
+                }
+                justToggledScraper = true;
+            }
+            else {
+                justToggledScraper = false;
+            }
+            
+            
             if (controller.get_digital(BTN_FIRE_LOW) && autonSelect != SKILLSAUTON) { // auto fire low
                 wristSeek = WRIST_VERTICAL_POS;
                 doSet = false;
@@ -1345,6 +1604,7 @@ void run_flywheel(void* params) {
             fireBall = false;
             flywheelRunSpeed = -1;
             flipCapWIntake = false;
+            scraperSeek = -1;
         }
         
         if (runTillBall) {
@@ -1367,10 +1627,10 @@ void run_flywheel(void* params) {
         double flywheelSpeed = 0;
         flywheelCurrSpeed = ( flywheel_1.get_actual_velocity() + flywheel_2.get_actual_velocity() ) / 2;
         
-//        if (autonSelect == SKILLSAUTON)
-//            targetSpeed = 450;
+        //        if (autonSelect == SKILLSAUTON)
+        //            targetSpeed = 450;
         
-
+        
         if (targetSpeed > 0) {
             if (flywheelCurrSpeed > targetSpeed) {  // Too fast
                 flywheelSpeed = flywheelSlowSpeed;  // So run slow
@@ -1380,13 +1640,20 @@ void run_flywheel(void* params) {
             }
         }
         
-//        if (targetSpeed == flyWheelDefaultSpeed && autonSelect != SKILLSAUTON) {
-//            flywheelSpeed = flyWheelDefaultSpeed;
-//        }
+        //        if (targetSpeed == flyWheelDefaultSpeed && autonSelect != SKILLSAUTON) {
+        //            flywheelSpeed = flyWheelDefaultSpeed;
+        //        }
         
         ///////////////////////////////
         // flywheelSpeed = 0;
         ///////////////////////////////
+        
+        if (scraperSeek != -1) {
+            scraperSpeed = (scraperSeek - scraperPos) / scraperSeekRate;
+            if (scraperSpeed > 127) scraperSpeed = 127;
+            if (scraperSpeed < -127) scraperSpeed = -127;
+        }
+        
         
         if (lastIntakeSpeed > 0 && intakeSpeedInner == 0) {
             intakeSpeedInner = -127;
@@ -1399,6 +1666,8 @@ void run_flywheel(void* params) {
         // Send speeds to intake motors
         intake_in.move_voltage(intakeSpeedInner*12000 / 127);
         intake_out.move_voltage(intakeSpeedOuter*12000 / 127);
+        
+        scraper.move_voltage(scraperSpeed*12000/127);
         
         // Remember ball info for fireing
         ballWasIn = ballIsIn;
@@ -1573,10 +1842,10 @@ void run_arm(void* params) {
         }
         
         
-      
+        
         
         // Flip in either mode
-            
+        
         if (controller.get_digital(BTN_FLIP)) {     // Auto flip (180°)
             if (!justFlipped) {
                 if (autonSelect == SKILLSAUTON) {
@@ -1721,10 +1990,11 @@ void run_arm(void* params) {
         
         
         // If we need to seek, then tell the arm, wrist, and flipper (lerp code)
+        // All clamping was 100, changed to 127 3/22/19
         if (armSeek > 0) {
             armSpeed = (armSeek - armPos) / armSeekRate;
-            if (armSpeed > 100) armSpeed = 100;
-            if (armSpeed < -100) armSpeed = -100;
+            if (armSpeed > 127) armSpeed = 127;
+            if (armSpeed < -127) armSpeed = -127;
             if (armSpeed < 0) armSpeed /= 1;        // slower on the way down
         }
         if (wristSeek != -1) {
@@ -1738,13 +2008,13 @@ void run_arm(void* params) {
             if (slowSeek) wSR = wristSeekSlow;
             
             wristSpeed = -(actualWristSeek - wristPos) / (wristSeekRate * wSR);
-            if (wristSpeed > 100) wristSpeed = 100;
-            if (wristSpeed < -100) wristSpeed = -100;
+            if (wristSpeed > 127) wristSpeed = 127;
+            if (wristSpeed < -127) wristSpeed = -127;
         }
         if (flipperSeek > 0) {
             flipperSpeed = (flipperSeek - flipperPos) / flipperSeekRate;
-            if (flipperSpeed > 100) flipperSpeed = 100;
-            if (flipperSpeed < -100) flipperSpeed = -100;
+            if (flipperSpeed > 127) flipperSpeed = 127;
+            if (flipperSpeed < -127) flipperSpeed = -127;
         }
         
         
@@ -1804,6 +2074,7 @@ void run_auton() {
         if (nextCommand) {
             std::cout << "Next Command: " << pros::millis() << std::endl;
             nextCommand = false;
+            lastAutonTime = (pros::millis() - startTime)/1000;
             bool skipToElse = false;
             int ifLayer = 0;
             switch ((int)processEntry()) {
@@ -1868,7 +2139,7 @@ void run_auton() {
                     break;
                 case TURN_TO:
                     turnToPoint(processEntry(),processEntry(),processEntry());
-                        std::cout << "Turn To Point" << std::endl;
+                    std::cout << "Turn To Point" << std::endl;
                     break;
                 case TURN:
                     turnTo(processEntry(), processEntry());
@@ -1903,7 +2174,7 @@ void run_auton() {
                     flywheelRunSpeed = -1;
                     break;
                 case FIRE:
-                    autoFireState = 1;
+                    autoFireState = 3;
                     targetFlag = processEntry();
                     flywheelRunSpeed = processEntry();
                     autoFireTimeout = -1;
@@ -1930,6 +2201,11 @@ void run_auton() {
                 case ARMSEEK:
                     armSeek = processEntry();
                     std::cout << "Arm Seek" << std::endl;
+                    nextCommand = true;
+                    break;
+                case SCRAPER:
+                    scraperSeek = processEntry();
+                    std::cout << "Scraper Seek" << std::endl;
                     nextCommand = true;
                     break;
                 case WRISTSEEK:
@@ -2177,6 +2453,11 @@ void run_auton() {
                 pauseTime = 0;
                 std::cout << "Pause Finished - " << pros::millis() << std::endl;
             }
+            if (pauseTime == SCRAPER_UP && scraperPos < 10) {
+                nextCommand = true;
+                pauseTime = 0;
+                std::cout << "Pause Finished - " << pros::millis() << std::endl;
+            }
         }
         
         if (terminateDrive) {
@@ -2204,7 +2485,7 @@ void run_screen(void* params) {
             controller.print(0,0, "RED BACK  ");
         else if (autonSelect == BLUEBACKAUTON)
             controller.print(0,0, "BLUE BACK ");
-
+        
         delay(200);
     }
 }
@@ -2226,7 +2507,7 @@ void run_screen(void* params) {
 void opcontrol() {
     
     // Start task
-   
+    
     int lastBlinkTime = millis();
     bool justToggledAuto = false;
     int startTime = millis();
@@ -2240,6 +2521,10 @@ void opcontrol() {
     
     
     while (true) {
+        
+        if (controller.get_digital(BTN_CHOOSE_AUTON)) {
+            setGyro(0);
+        }
         
         std::cout << "Sensor: " << sensor_gyro.get_value() << " Gyro: " << gyroDirection << " Direction: " << direction << std::endl;
         //std::cout << " Arm Pos: " << armPos << " Wrist Pos: " << wristPos << " Flip Pos: " << flipperPos << " Stack Step " << stackStep << std::endl;
