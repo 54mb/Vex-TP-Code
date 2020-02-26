@@ -3,6 +3,8 @@
 ## Information:
 The VEX Robotics World Championship is the largest robotics competition in the world.
 Each year, a game is announced to test team's ability to design, build, and program robotic systems.
+- VEXU Info: https://www.roboticseducation.org/vex-u/
+- Code written using the PROS API: https://pros.cs.purdue.edu/v5/index.html
 
 ## Outcome:
 In 2019, the USC VEXU Robotics Team was awarded the Excellence Award, given to the overall best team at the event.
