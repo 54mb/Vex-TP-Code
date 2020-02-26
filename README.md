@@ -11,5 +11,5 @@ We also placed 2nd in the Programming Skills challenge, a one minute time trial 
 ## Demo:
 The code cannot be run without our custom hardware.
 Please see these videos demonstrating the code running on the robots:
-- This is fully autonomous Programming Skills: https://www.youtube.com/watch?v=RgeNu5qy2sw
-- This is two-robot fully autonomous 45 second run: https://www.youtube.com/watch?v=1jRUnZbuJZo
+- Fully autonomous Programming Skills: https://www.youtube.com/watch?v=RgeNu5qy2sw
+- Two-robot fully autonomous 45 second run: https://www.youtube.com/watch?v=1jRUnZbuJZo
